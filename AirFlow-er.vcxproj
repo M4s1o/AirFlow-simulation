@@ -165,6 +165,7 @@
     <ClCompile Include="source\stb.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaders\air_flow-er.comp" />
     <None Include="shaders\render.frag" />
     <None Include="shaders\render.vert" />
   </ItemGroup>

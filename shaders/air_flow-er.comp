@@ -1,0 +1,111 @@
+#version 460 core
+
+layout(local_size_x = 256) in;
+
+struct Cell {
+	vec2 velocity; // m/s
+	float density;  // kg/m^2
+	float pressure; // Pa
+	float temperature; // K
+	float padding;
+};
+
+layout(std430, binding = 0) buffer inCellBuffer {
+	Cell in_cell[];
+};
+layout(std430, binding = 1) buffer outCellBuffer {
+	Cell out_cell[];
+};
+
+uniform float dt;
+uniform ivec2 cell_count;
+uniform vec2  cell_size;
+
+uint getCellID(ivec2 position);
+
+void main() {
+	uint id = gl_GlobalInvocationID.x;
+	if (id >= cell_count.x * cell_count.y)
+		return;
+
+	ivec2 cell_position = ivec2(
+		int(id) % cell_count.x,
+        int(id) / cell_count.x
+	);
+
+	// get neighbor cell ids
+	uint top_cell_id =    getCellID(ivec2(cell_position.x, cell_position.y + 1));
+	uint bottom_cell_id = getCellID(ivec2(cell_position.x, cell_position.y - 1));
+	uint right_cell_id =  getCellID(ivec2(cell_position.x + 1, cell_position.y));
+	uint left_cell_id =   getCellID(ivec2(cell_position.x - 1, cell_position.y));
+
+	// get mass transfers / volumes
+	float top_cell_mass_transfer = float(in_cell[top_cell_id].velocity.y < 0) * 
+		(-in_cell[top_cell_id].velocity.y) * cell_size.x * 
+		in_cell[top_cell_id].density * dt;
+
+	float right_cell_mass_transfer = float(in_cell[right_cell_id].velocity.x < 0) * 
+		(-in_cell[right_cell_id].velocity.x) * cell_size.y * 
+		in_cell[right_cell_id].density * dt;
+
+	float bottom_cell_mass_transfer = float(in_cell[bottom_cell_id].velocity.y > 0) * 
+		in_cell[bottom_cell_id].velocity.y * cell_size.x * 
+		in_cell[bottom_cell_id].density * dt;
+
+	float left_cell_mass_transfer = float(in_cell[left_cell_id].velocity.x > 0) * 
+		in_cell[left_cell_id].velocity.x * cell_size.y * 
+		in_cell[left_cell_id].density * dt;
+
+	float new_cell_mass = (cell_size.x * cell_size.y * in_cell[id].density) - 
+		(abs(in_cell[id].velocity.x) * cell_size.y + abs(in_cell[id].velocity.y) * cell_size.x) * in_cell[id].density * dt;
+
+	// mass calculation
+	float mass = 
+		top_cell_mass_transfer +
+		right_cell_mass_transfer +
+		bottom_cell_mass_transfer +
+		left_cell_mass_transfer +
+		new_cell_mass;
+
+	// density calculation
+	out_cell[id].density = mass / (cell_size.x * cell_size.y);
+
+	// temperature calculation
+	out_cell[id].temperature = (
+		top_cell_mass_transfer * in_cell[top_cell_id].temperature +
+		right_cell_mass_transfer * in_cell[right_cell_id].temperature +
+		bottom_cell_mass_transfer * in_cell[bottom_cell_id].temperature +
+		left_cell_mass_transfer * in_cell[left_cell_id].temperature +
+		new_cell_mass * in_cell[id].temperature ) / mass;
+
+	// preassure calculation
+	out_cell[id].pressure = out_cell[id].density * out_cell[id].temperature * 287.0;
+
+	// acceleration calculation
+	vec2 acceleration = vec2(
+		(in_cell[left_cell_id].pressure - in_cell[right_cell_id].pressure) /
+		(2 * cell_size.y * out_cell[id].density),
+		(in_cell[bottom_cell_id].pressure - in_cell[top_cell_id].pressure) /
+		(2 * cell_size.x * out_cell[id].density));
+
+	// flow calculation
+	out_cell[id].velocity = (
+		top_cell_mass_transfer * in_cell[top_cell_id].velocity +
+		right_cell_mass_transfer * in_cell[right_cell_id].velocity +
+		bottom_cell_mass_transfer * in_cell[bottom_cell_id].velocity +
+		left_cell_mass_transfer * in_cell[left_cell_id].velocity +
+		new_cell_mass * in_cell[id].velocity ) / mass +
+		acceleration * dt;
+}
+
+uint getCellID(ivec2 position) {
+	if (position.x < 0)
+		position.x = cell_count.x + position.x;
+	if (position.x >= cell_count.x)
+		position.x -= cell_count.x;
+	if (position.y < 0)
+		position.y = cell_count.y + position.y;
+	if (position.y >= cell_count.y)
+		position.y -= cell_count.y;
+	return position.y * cell_count.x + position.x;
+}
