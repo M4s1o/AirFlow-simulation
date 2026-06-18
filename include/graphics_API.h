@@ -216,7 +216,8 @@ Window* getCurrentContext();
 class Texture {
 private:
 	GLuint id = 0;
-	GLuint64 handle = 0;
+	GLuint64 textureHandle = 0;
+	GLuint64 imageHandle = 0;
 	int width = 0;
 	int height = 0;
 public:
@@ -229,11 +230,14 @@ public:
 	void write(GLint level, GLint offsetX, GLint offsetY, GLsizei width, GLsizei height, GLenum format, GLenum type, const void* pixels);
 	void setFilter(GLenum minFilter, GLenum magFilter);
 	void setWrap(GLenum s, GLenum t);
-	void load();
-	void unload();
+	void loadTexture();
+	void unloadTexture();
+	void loadImage(GLenum acces, GLint level, GLboolean layered, GLint layer, GLenum format);
+	void unloadImage();
 
 	GLuint getID();
-	GLuint64 getHandle();
+	GLuint64 getTextureHandle();
+	GLuint64 getImageHandle();
 	int getWidth();
 	int getHeight();
 };

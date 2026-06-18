@@ -165,9 +165,12 @@
     <ClCompile Include="source\stb.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\air_flow-er.comp" />
+    <None Include="glsl shaders\pressure_solver.comp" />
+    <None Include="shaders\pressure_solver.comp" />
     <None Include="shaders\render.frag" />
     <None Include="shaders\render.vert" />
+    <None Include="shaders\velocity_X_solver.comp" />
+    <None Include="shaders\velocity_Y_solver.comp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

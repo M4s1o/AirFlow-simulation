@@ -1,0 +1,64 @@
+#version 460 core
+#extension GL_ARB_bindless_texture : require
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(bindless_image, rgba16f) uniform image2D cellData_Texture_in;
+layout(bindless_image, r16f)    uniform image2D flowX_Texture_in;
+layout(bindless_image, r16f)    uniform image2D flowY_Texture_in;
+
+layout(bindless_image, rgba16f) uniform image2D cellData_Texture_out;
+layout(bindless_image, r16f)    uniform image2D flowX_Texture_out;
+layout(bindless_image, r16f)    uniform image2D flowY_Texture_out;
+
+uniform float K;
+uniform float SOR;
+
+uniform uvec2 cell_count;
+uniform vec2  cell_size;
+
+bool cellExists(ivec2 cell_coord) {
+    if (cell_coord.x < 0 || cell_coord.y < 0) return false;
+    if (cell_coord.x >= int(cell_count.x) || cell_coord.y >= int(cell_count.y)) return false;
+    return true;
+}
+
+void main() {
+    uvec2 ucell = gl_GlobalInvocationID.xy;
+    if (ucell.x >= cell_count.x || ucell.y >= cell_count.y) return;
+    if (K == 0.0) return;
+
+    ivec2 cell_coord = ivec2(ucell);
+
+    bool cell_flag_top    = cellExists(cell_coord + ivec2(0,  1));
+    bool cell_flag_right  = cellExists(cell_coord + ivec2(1,  0));
+    bool cell_flag_bottom = cellExists(cell_coord + ivec2(0, -1));
+    bool cell_flag_left   = cellExists(cell_coord + ivec2(-1, 0));
+    
+    uint active_cell_count =
+        uint(cell_flag_top) +
+        uint(cell_flag_right) +
+        uint(cell_flag_bottom) +
+        uint(cell_flag_left);
+
+    if (active_cell_count == 0) return;
+
+    float pressure_top    = cell_flag_top    ? imageLoad(cellData_Texture_in, cell_coord + ivec2(0,  1)).x : 0.0;
+    float pressure_right  = cell_flag_right  ? imageLoad(cellData_Texture_in, cell_coord + ivec2(1,  0)).x : 0.0;
+    float pressure_bottom = cell_flag_bottom ? imageLoad(cellData_Texture_in, cell_coord + ivec2(0, -1)).x : 0.0;
+    float pressure_left   = cell_flag_left   ? imageLoad(cellData_Texture_in, cell_coord + ivec2(-1, 0)).x : 0.0;
+
+    float velocity_left   = imageLoad(flowX_Texture_in, ivec2(cell_coord.x,     cell_coord.y    )).x;
+    float velocity_right  = imageLoad(flowX_Texture_in, ivec2(cell_coord.x + 1, cell_coord.y    )).x;
+    float velocity_top    = imageLoad(flowY_Texture_in, ivec2(cell_coord.x,     cell_coord.y    )).x;
+    float velocity_bottom = imageLoad(flowY_Texture_in, ivec2(cell_coord.x,     cell_coord.y + 1)).x;
+
+    float divergence = (velocity_right - velocity_left + velocity_bottom - velocity_top) / (float(active_cell_count) * K);
+
+    float old_pressure = imageLoad(cellData_Texture_in, cell_coord).x;
+    float neighbor_avg = (pressure_top + pressure_right + pressure_bottom + pressure_left) / float(active_cell_count);
+
+    float new_pressure = old_pressure + ((neighbor_avg - divergence) - old_pressure) * SOR;
+
+    imageStore(cellData_Texture_out, cell_coord, vec4(new_pressure, 0.0, 0.0, divergence));
+}

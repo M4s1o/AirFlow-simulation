@@ -650,16 +650,16 @@ GLFWwindow* Window::getContext() {
 
 // =========== Texture ===========
 Texture::Texture(GLenum target, GLsizei levels, GLenum format, GLsizei width, GLsizei height) {
-	glCreateTextures(GL_TEXTURE_2D, 1, &id);
-	glTextureStorage2D(id, 1, GL_RGBA8, width, height);
-	handle = glGetTextureHandleARB(id);
+	glCreateTextures(target, 1, &id);
+	glTextureStorage2D(id, levels, format, width, height);
+	this->width = width;
+	this->height = height;
 }
 Texture::~Texture() {
 	glDeleteTextures(1, &id);
 }
 void Texture::write(GLint level, GLint offsetX, GLint offsetY, GLsizei width, GLsizei height, GLenum format, GLenum type, const void* pixels) {
-	glTextureSubImage2D(id, 0, 0, 0, width, height,
-		GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+	glTextureSubImage2D(id, level, offsetX, offsetY, width, height, format, type, pixels);
 }
 void Texture::setFilter(GLenum minFilter, GLenum magFilter) {
 	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, minFilter);
@@ -669,17 +669,28 @@ void Texture::setWrap(GLenum s, GLenum t) {
 	glTextureParameteri(id, GL_TEXTURE_WRAP_S, s);
 	glTextureParameteri(id, GL_TEXTURE_WRAP_T, t);
 }
-void Texture::load() {
-	glMakeTextureHandleResidentARB(handle);
+void Texture::loadTexture() {
+	textureHandle = glGetTextureHandleARB(id);
+	glMakeTextureHandleResidentARB(textureHandle);
 }
-void Texture::unload() {
-	glMakeTextureHandleNonResidentARB(handle);
+void Texture::unloadTexture() {
+	glMakeTextureHandleNonResidentARB(textureHandle);
+}
+void Texture::loadImage(GLenum acces, GLint level, GLboolean layered, GLint layer, GLenum format) {
+	imageHandle = glGetImageHandleARB(id, level, layered, layer, format);
+	glMakeImageHandleResidentARB(imageHandle, acces);
+}
+void Texture::unloadImage() {
+	glMakeImageHandleNonResidentARB(imageHandle);
 }
 GLuint Texture::getID() {
 	return id;
 }
-GLuint64 Texture::getHandle() {
-	return handle;
+GLuint64 Texture::getTextureHandle() {
+	return textureHandle;
+}
+GLuint64 Texture::getImageHandle() {
+	return imageHandle;
 }
 int Texture::getWidth() {
 	return width;

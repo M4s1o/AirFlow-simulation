@@ -29,6 +29,12 @@ struct IndirectCommand {
 	GLuint baseInstance;
 };
 
+void randomizeSimulation(
+	Texture cellData[2],
+	Texture flowX[2],
+	Texture flowY[2],
+	glm::uvec2 cellCount);
+
 int main() {
 	// ===========================
 	// setup
@@ -42,7 +48,7 @@ int main() {
 	// window setup
 	glfwInit();
 	Window window;
-	window.setVsync(false);
+	//window.setVsync(false);
 	window.setResizable(false);
 	window.setSize(0, 0, 800, 800);
 
@@ -61,55 +67,44 @@ int main() {
 	renderProg.addShader(GL_FRAGMENT_SHADER, readFileToString(shadersDirectory + "render.frag"));
 	renderProg.compile();
 
-	ShaderProgram computeProg;
-	computeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "air_flow-er.comp"));
-	computeProg.compile();
+	ShaderProgram pressureComputeProg;
+	pressureComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "pressure_solver.comp"));
+	pressureComputeProg.compile();
+
+	ShaderProgram velocityXComputeProg;
+	velocityXComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "velocity_X_solver.comp"));
+	velocityXComputeProg.compile();
+
+	ShaderProgram velocityYComputeProg;
+	velocityYComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "velocity_Y_solver.comp"));
+	velocityYComputeProg.compile();
 
 	// draw setup
 	VAO vao;
 
-	// buffers setup
-	bool currentCellBuffer = false;
-	Buffer cellBuffer[2] = { 
-		Buffer(sizeof(Cell) * cellCount.x * cellCount.y),
-		Buffer(sizeof(Cell) * cellCount.x * cellCount.y)
+	// data setup
+	Texture cellData[2] = {
+		Texture(GL_TEXTURE_2D, 1, GL_RGBA16F, cellCount.x, cellCount.y),
+		Texture(GL_TEXTURE_2D, 1, GL_RGBA16F, cellCount.x, cellCount.y)
 	};
+	Texture flowX[2] = {
+		Texture(GL_TEXTURE_2D, 1, GL_R16F, cellCount.x + 1, cellCount.y),
+		Texture(GL_TEXTURE_2D, 1, GL_R16F, cellCount.x + 1, cellCount.y)
+	};
+	Texture flowY[2] = {
+		Texture(GL_TEXTURE_2D, 1, GL_R16F, cellCount.x, cellCount.y + 1),
+		Texture(GL_TEXTURE_2D, 1, GL_R16F, cellCount.x, cellCount.y + 1)
+	};
+	bool current_data = false;
+	bool current_flow_data = false;
 
-	for (int x = 0; x < cellCount.x; x++) {
-		for (int y = 0; y < cellCount.y; y++) {
-			Cell cell;
+	cellData[current_data].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_RGBA16F);
+	flowX[current_flow_data].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_R16F);
+	flowY[current_flow_data].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_R16F);
 
-			// Test 01 - stability test
-			//cell.temperature = 293.15f;
-			//cell.density = 1.225f;
-			//cell.pressure = 101325.0f;
-
-			// Test 02 - partial vacuum
-			//if (x < cellCount.x / 2) {
-			//	cell.temperature = 293.15f + ((float)rand() / (float)RAND_MAX * 2.0f - 1.0f) * 40.0f;
-			//	cell.density = 1.225f + ((float)rand() / (float)RAND_MAX * 2.0f - 1.0f) * 0.2f;
-			//	cell.pressure = 101325.0f + ((float)rand() / (float)RAND_MAX * 2.0f - 1.0f) * 1000.0f;
-			//}
-
-			// Test 04 - one way
-			cell.temperature = 293.15f;
-			cell.density = 1.225f;
-			cell.pressure = 101325.0f;
-			if (x < cellCount.x / 2) {
-				cell.velocity = {1, 0};
-			}
-
-			cellBuffer[currentCellBuffer].write(&cell, (y * cellCount.x + x) * sizeof(Cell), sizeof(cell));
-		}
-	}
-	// Test 03 - temperature point
-	//Cell cell;
-	//cell.temperature = 1000.15f;
-	//cell.density = 1.225f;
-	//cell.pressure = 101325.0f;
-	//cellBuffer[currentCellBuffer].write(&cell, (50 * cellCount.y + 50) * sizeof(Cell), sizeof(cell));
-
-	cellBuffer[!currentCellBuffer].write(cellBuffer[currentCellBuffer].getPtr(), 0, cellBuffer[currentCellBuffer].getSize());
+	cellData[!current_data].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_RGBA16F);
+	flowX[!current_flow_data].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_R16F);
+	flowY[!current_flow_data].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_R16F);
 
 	// loop setup
 	glEnable(GL_PROGRAM_POINT_SIZE);
@@ -125,21 +120,66 @@ int main() {
 
 		fence.wait(1000000000);
 
-		currentCellBuffer = !currentCellBuffer;
-		cellBuffer[currentCellBuffer].bind(GL_SHADER_STORAGE_BUFFER, 0, 0, cellBuffer[currentCellBuffer].getSize());
-		cellBuffer[!currentCellBuffer].bind(GL_SHADER_STORAGE_BUFFER, 1, 0, cellBuffer[!currentCellBuffer].getSize());
-
-		computeProg.useProgram();
+		// velocity solve
+		velocityXComputeProg.useProgram();
 		
-		glUniform2i(glGetUniformLocation(computeProg.getID(), "cell_count"), cellCount.x, cellCount.y);
-		glUniform2f(glGetUniformLocation(computeProg.getID(), "cell_size"), 1.0f / (float)cellCount.x, 1.0f / (float)cellCount.y);
-		glUniform1f(glGetUniformLocation(computeProg.getID(), "dt"), dt);
-		
-		computeProg.runCompute(cellCount.x * cellCount.y, 1, 1, GL_SHADER_STORAGE_BARRIER_BIT);
+		glUniformHandleui64ARB(glGetUniformLocation(velocityXComputeProg.getID(), "cellData_Texture_in"), cellData[current_data].getImageHandle());
+		glUniformHandleui64ARB(glGetUniformLocation(velocityXComputeProg.getID(), "flowX_Texture_in"), flowX[current_flow_data].getImageHandle());
 
+		glUniformHandleui64ARB(glGetUniformLocation(velocityXComputeProg.getID(), "cellData_Texture_out"), cellData[!current_data].getImageHandle());
+		glUniformHandleui64ARB(glGetUniformLocation(velocityXComputeProg.getID(), "flowX_Texture_out"), flowX[!current_flow_data].getImageHandle());
+
+		glUniform2ui(glGetUniformLocation(velocityXComputeProg.getID(), "cell_count"), cellCount.x, cellCount.y);
+		glUniform1f(glGetUniformLocation(velocityXComputeProg.getID(), "K"), dt / (1.225 * ((1.0f / (float)cellCount.x) * (1.0f / (float)cellCount.y))));
+
+		velocityXComputeProg.runCompute(cellCount.x + 1, cellCount.y, 1, GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+
+		velocityYComputeProg.useProgram();
+
+		glUniformHandleui64ARB(glGetUniformLocation(velocityYComputeProg.getID(), "cellData_Texture_in"), cellData[current_data].getImageHandle());
+		glUniformHandleui64ARB(glGetUniformLocation(velocityYComputeProg.getID(), "flowY_Texture_in"), flowY[current_flow_data].getImageHandle());
+
+		glUniformHandleui64ARB(glGetUniformLocation(velocityYComputeProg.getID(), "cellData_Texture_out"), cellData[!current_data].getImageHandle());
+		glUniformHandleui64ARB(glGetUniformLocation(velocityYComputeProg.getID(), "flowY_Texture_out"), flowY[!current_flow_data].getImageHandle());
+
+		glUniform2ui(glGetUniformLocation(velocityYComputeProg.getID(), "cell_count"), cellCount.x, cellCount.y);
+		glUniform1f(glGetUniformLocation(velocityYComputeProg.getID(), "K"), dt / (1.225 * ((1.0f / (float)cellCount.x) * (1.0f / (float)cellCount.y))));
+
+		velocityYComputeProg.runCompute(cellCount.x, cellCount.y + 1, 1, GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+		current_flow_data = !current_flow_data;
+
+		// pressure solve
+		//for (int i = 0; i < 30; i++) {
+			pressureComputeProg.useProgram();
+
+			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "cellData_Texture_in"), cellData[current_data].getImageHandle());
+			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "flowX_Texture_in"), flowX[current_flow_data].getImageHandle());
+			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "flowY_Texture_in"), flowY[current_flow_data].getImageHandle());
+
+			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "cellData_Texture_out"), cellData[!current_data].getImageHandle());
+			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "flowX_Texture_out"), flowX[!current_flow_data].getImageHandle());
+			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "flowY_Texture_out"), flowY[!current_flow_data].getImageHandle());
+
+			glUniform2ui(glGetUniformLocation(pressureComputeProg.getID(), "cell_count"), cellCount.x, cellCount.y);
+			glUniform2f(glGetUniformLocation(pressureComputeProg.getID(), "cell_size"), 1.0f / (float)cellCount.x, 1.0f / (float)cellCount.y);
+			glUniform1f(glGetUniformLocation(pressureComputeProg.getID(), "K"), dt / (1.225 * ((1.0f / (float)cellCount.x) * (1.0f / (float)cellCount.y))));
+			glUniform1f(glGetUniformLocation(pressureComputeProg.getID(), "SOR"), 1.0f);
+
+			pressureComputeProg.runCompute(cellCount.x, cellCount.y, 1, GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+			current_data = !current_data;
+		//}
+
+		// render
 		renderProg.useProgram();
 
-		glUniform2i(glGetUniformLocation(renderProg.getID(), "cell_count"), cellCount.x, cellCount.y);
+		glUniformHandleui64ARB(glGetUniformLocation(renderProg.getID(), "cellData_Texture"), cellData[current_data].getImageHandle());
+		glUniformHandleui64ARB(glGetUniformLocation(renderProg.getID(), "flowX_Texture"), flowX[current_data].getImageHandle());
+		glUniformHandleui64ARB(glGetUniformLocation(renderProg.getID(), "flowY_Texture"), flowY[current_data].getImageHandle());
+
+		glUniform2ui(glGetUniformLocation(renderProg.getID(), "cell_count"), cellCount.x, cellCount.y);
 		glUniform2i(glGetUniformLocation(renderProg.getID(), "resolution"), window.getFormat()->width, window.getFormat()->height);
 
 		vao.draw(GL_POINTS, cellCount.x * cellCount.y);
@@ -149,7 +189,10 @@ int main() {
 		ImGui::NewFrame();
 
 		ImGui::Begin("settings");
-		ImGui::SliderFloat("delta time", &dt, 0, 0.0001, "%.7f");
+		ImGui::SliderFloat("delta time", &dt, 0, 1, "%.7f");
+		if (ImGui::Button("randomize")) {
+			randomizeSimulation(cellData, flowX, flowY, cellCount);
+		}
 		ImGui::End();
 
 		ImGui::Render();
@@ -161,4 +204,70 @@ int main() {
 		glfwPollEvents();
 	}
 	return 1;
+}
+
+void randomizeSimulation(
+	Texture cellData[2],
+	Texture flowX[2],
+	Texture flowY[2],
+	glm::uvec2 cellCount)
+{
+	std::vector<glm::vec4> cellPixels(cellCount.x * cellCount.y);
+
+	for (uint32_t y = 0; y < cellCount.y; y++) {
+		for (uint32_t x = 0; x < cellCount.x; x++) {
+			uint32_t id = y * cellCount.x + x;
+
+			float pressure = 0.0f;
+
+			float temperature =
+				293.15f +
+				(((float)rand() / RAND_MAX) * 2.0f - 1.0f) * 40.0f;
+
+			float density =
+				1.225f +
+				(((float)rand() / RAND_MAX) * 2.0f - 1.0f) * 0.2f;
+
+			cellPixels[id] = glm::vec4(
+				pressure,
+				temperature,
+				density,
+				0.0f
+			);
+		}
+	}
+
+	std::vector<float> flowXPixels((cellCount.x + 1) * cellCount.y);
+	std::vector<float> flowYPixels(cellCount.x * (cellCount.y + 1));
+
+	for (float& v : flowXPixels) {
+		v = (((float)rand() / RAND_MAX) * 2.0f - 1.0f) * 10.0f;
+	}
+
+	for (float& v : flowYPixels) {
+		v = (((float)rand() / RAND_MAX) * 2.0f - 1.0f) * 10.0f;
+	}
+
+	for (int i = 0; i < 2; i++) {
+		cellData[i].write(
+			0, 0, 0,
+			cellCount.x, cellCount.y,
+			GL_RGBA,
+			GL_FLOAT,
+			cellPixels.data());
+
+		flowX[i].write(
+			0, 0, 0,
+			cellCount.x + 1, cellCount.y,
+			GL_RED,
+			GL_FLOAT,
+			flowXPixels.data());
+
+		flowY[i].write(
+			0, 0, 0,
+			cellCount.x, cellCount.y + 1,
+			GL_RED,
+			GL_FLOAT,
+			flowYPixels.data());
+	}
 }

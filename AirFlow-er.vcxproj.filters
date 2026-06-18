@@ -65,8 +65,15 @@
     <None Include="shaders\render.frag">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="shaders\air_flow-er.comp">
+    <None Include="shaders\pressure_solver.comp">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="shaders\velocity_Y_solver.comp">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\velocity_X_solver.comp">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="glsl shaders\pressure_solver.comp" />
   </ItemGroup>
 </Project>
