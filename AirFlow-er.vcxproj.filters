@@ -19,6 +19,12 @@
     <Filter Include="Source Files\ImGui">
       <UniqueIdentifier>{2a0b176c-75d7-4e22-b314-f29eb3ca466b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource Files\rendering">
+      <UniqueIdentifier>{c572346e-60cd-41b7-a02f-c236b69255eb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\compute">
+      <UniqueIdentifier>{0355cf09-8342-4407-a7ff-6d5edb17ade3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\error_wrapper.cpp">
@@ -28,9 +34,6 @@
       <Filter>Source Files\Ikaros</Filter>
     </ClCompile>
     <ClCompile Include="source\graphics_API_extension.cpp">
-      <Filter>Source Files\Ikaros</Filter>
-    </ClCompile>
-    <ClCompile Include="source\stb.cpp">
       <Filter>Source Files\Ikaros</Filter>
     </ClCompile>
     <ClCompile Include="imgui\imgui.cpp">
@@ -59,21 +62,26 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\render.vert">
-      <Filter>Resource Files</Filter>
+    <None Include="shaders\rendering\render_cell.frag">
+      <Filter>Resource Files\rendering</Filter>
     </None>
-    <None Include="shaders\render.frag">
-      <Filter>Resource Files</Filter>
+    <None Include="shaders\rendering\render_cell.vert">
+      <Filter>Resource Files\rendering</Filter>
     </None>
-    <None Include="shaders\pressure_solver.comp">
-      <Filter>Resource Files</Filter>
+    <None Include="shaders\rendering\render_flow.frag">
+      <Filter>Resource Files\rendering</Filter>
     </None>
-    <None Include="shaders\velocity_Y_solver.comp">
-      <Filter>Resource Files</Filter>
+    <None Include="shaders\rendering\render_flow.vert">
+      <Filter>Resource Files\rendering</Filter>
     </None>
-    <None Include="shaders\velocity_X_solver.comp">
-      <Filter>Resource Files</Filter>
+    <None Include="shaders\compute\pressure_solver.comp">
+      <Filter>Resource Files\compute</Filter>
     </None>
-    <None Include="glsl shaders\pressure_solver.comp" />
+    <None Include="shaders\compute\velocity_X_solver.comp">
+      <Filter>Resource Files\compute</Filter>
+    </None>
+    <None Include="shaders\compute\velocity_Y_solver.comp">
+      <Filter>Resource Files\compute</Filter>
+    </None>
   </ItemGroup>
 </Project>

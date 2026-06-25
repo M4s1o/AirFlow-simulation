@@ -8,14 +8,13 @@ layout(bindless_image, r16f)    uniform image2D flowX_Texture_in;
 layout(bindless_image, r16f)    uniform image2D flowY_Texture_in;
 
 layout(bindless_image, rgba16f) uniform image2D cellData_Texture_out;
-layout(bindless_image, r16f)    uniform image2D flowX_Texture_out;
-layout(bindless_image, r16f)    uniform image2D flowY_Texture_out;
-
-uniform float K;
-uniform float SOR;
 
 uniform uvec2 cell_count;
-uniform vec2  cell_size;
+uniform float cell_side_lenght;
+
+uniform float dt;
+uniform float density;
+
 
 bool cellExists(ivec2 cell_coord) {
     if (cell_coord.x < 0 || cell_coord.y < 0) return false;
@@ -26,7 +25,6 @@ bool cellExists(ivec2 cell_coord) {
 void main() {
     uvec2 ucell = gl_GlobalInvocationID.xy;
     if (ucell.x >= cell_count.x || ucell.y >= cell_count.y) return;
-    if (K == 0.0) return;
 
     ivec2 cell_coord = ivec2(ucell);
 
@@ -53,12 +51,15 @@ void main() {
     float velocity_top    = imageLoad(flowY_Texture_in, ivec2(cell_coord.x,     cell_coord.y    )).x;
     float velocity_bottom = imageLoad(flowY_Texture_in, ivec2(cell_coord.x,     cell_coord.y + 1)).x;
 
-    float divergence = (velocity_right - velocity_left + velocity_bottom - velocity_top) / (float(active_cell_count) * K);
+    float divergence = velocity_left - velocity_right + velocity_bottom - velocity_top;
 
     float old_pressure = imageLoad(cellData_Texture_in, cell_coord).x;
-    float neighbor_avg = (pressure_top + pressure_right + pressure_bottom + pressure_left) / float(active_cell_count);
 
-    float new_pressure = old_pressure + ((neighbor_avg - divergence) - old_pressure) * SOR;
+    float neighbor_avg;
+    if (active_cell_count == 0) neighbor_avg = 0.0;
+    else neighbor_avg = (pressure_top + pressure_right + pressure_bottom + pressure_left) / (float(active_cell_count));
+    
+    float new_pressure = neighbor_avg + divergence * cell_side_lenght * density * dt;
 
     imageStore(cellData_Texture_out, cell_coord, vec4(new_pressure, 0.0, 0.0, divergence));
 }

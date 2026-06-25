@@ -162,15 +162,15 @@
     <ClCompile Include="source\error_wrapper.cpp" />
     <ClCompile Include="source\graphics_API.cpp" />
     <ClCompile Include="source\graphics_API_extension.cpp" />
-    <ClCompile Include="source\stb.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="glsl shaders\pressure_solver.comp" />
-    <None Include="shaders\pressure_solver.comp" />
-    <None Include="shaders\render.frag" />
-    <None Include="shaders\render.vert" />
-    <None Include="shaders\velocity_X_solver.comp" />
-    <None Include="shaders\velocity_Y_solver.comp" />
+    <None Include="shaders\compute\pressure_solver.comp" />
+    <None Include="shaders\compute\velocity_X_solver.comp" />
+    <None Include="shaders\compute\velocity_Y_solver.comp" />
+    <None Include="shaders\rendering\render_cell.frag" />
+    <None Include="shaders\rendering\render_cell.vert" />
+    <None Include="shaders\rendering\render_flow.frag" />
+    <None Include="shaders\rendering\render_flow.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
