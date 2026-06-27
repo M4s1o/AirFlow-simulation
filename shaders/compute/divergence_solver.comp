@@ -1,0 +1,60 @@
+#version 460 core
+#extension GL_ARB_bindless_texture : require
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(bindless_image, rg16f) coherent uniform image2D divergenceData_Texture_in;
+layout(bindless_image, r16f)  coherent uniform image2D flowX_Texture_in;
+layout(bindless_image, r16f)  coherent uniform image2D flowY_Texture_in;
+
+layout(bindless_image, rg16f) coherent uniform image2D divergenceData_Texture_out;
+
+uniform uvec2 cell_count;
+uniform float cell_side_length;
+
+uniform float dt;
+uniform float density;
+
+
+bool cellExists(ivec2 cell_coord) {
+    if (cell_coord.x < 0 || cell_coord.y < 0) return false;
+    if (cell_coord.x >= int(cell_count.x) || cell_coord.y >= int(cell_count.y)) return false;
+    return true;
+}
+
+void main() {
+    uvec2 ucell = gl_GlobalInvocationID.xy;
+    if (!cellExists(ivec2(ucell))) return;
+    if (dt <= 0) return;
+
+    ivec2 cell_coord = ivec2(ucell);
+
+    bool cell_flag_top    = cellExists(cell_coord + ivec2(0,  1));
+    bool cell_flag_right  = cellExists(cell_coord + ivec2(1,  0));
+    bool cell_flag_bottom = cellExists(cell_coord + ivec2(0, -1));
+    bool cell_flag_left   = cellExists(cell_coord + ivec2(-1, 0));
+    
+    uint active_cell_count =
+        uint(cell_flag_top) +
+        uint(cell_flag_right) +
+        uint(cell_flag_bottom) +
+        uint(cell_flag_left);
+
+    if (active_cell_count == 0) return;
+
+    float velocity_left   = cell_flag_top    ? imageLoad(flowX_Texture_in, ivec2(cell_coord.x,     cell_coord.y    )).x : 0.0;
+    float velocity_right  = cell_flag_right  ? imageLoad(flowX_Texture_in, ivec2(cell_coord.x + 1, cell_coord.y    )).x : 0.0;
+    float velocity_top    = cell_flag_bottom ? imageLoad(flowY_Texture_in, ivec2(cell_coord.x,     cell_coord.y + 1)).x : 0.0;
+    float velocity_bottom = cell_flag_left   ? imageLoad(flowY_Texture_in, ivec2(cell_coord.x,     cell_coord.y    )).x : 0.0;
+
+    float divergence = velocity_right - velocity_left + velocity_top - velocity_bottom;
+
+    float velocity_term;
+    if (active_cell_count == 0) velocity_term = 0;
+    else velocity_term = (divergence) / (active_cell_count * (cell_side_length * density) / dt);
+
+    vec4 divergence_data = imageLoad(divergenceData_Texture_in, cell_coord);
+    divergence_data.r = divergence;
+    divergence_data.g = velocity_term;
+    imageStore(divergenceData_Texture_out, cell_coord, divergence_data);
+}

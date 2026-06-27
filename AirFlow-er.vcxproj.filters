@@ -60,6 +60,9 @@
     <ClCompile Include="Libraries\glad.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="fluid_grid.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\rendering\render_cell.frag">
@@ -74,13 +77,28 @@
     <None Include="shaders\rendering\render_flow.vert">
       <Filter>Resource Files\rendering</Filter>
     </None>
-    <None Include="shaders\compute\pressure_solver.comp">
+    <None Include="shaders\compute\neighbor_pressure_solver.comp">
       <Filter>Resource Files\compute</Filter>
     </None>
     <None Include="shaders\compute\velocity_X_solver.comp">
       <Filter>Resource Files\compute</Filter>
     </None>
     <None Include="shaders\compute\velocity_Y_solver.comp">
+      <Filter>Resource Files\compute</Filter>
+    </None>
+    <None Include="shaders\compute\divergence_solver.comp">
+      <Filter>Resource Files\compute</Filter>
+    </None>
+    <None Include="shaders\rendering\render_flow_X.vert">
+      <Filter>Resource Files\rendering</Filter>
+    </None>
+    <None Include="shaders\rendering\render_flow_X&amp;Y.frag">
+      <Filter>Resource Files\rendering</Filter>
+    </None>
+    <None Include="shaders\rendering\render_flow_Y.vert">
+      <Filter>Resource Files\rendering</Filter>
+    </None>
+    <None Include="shaders\compute\pressure_solver.comp">
       <Filter>Resource Files\compute</Filter>
     </None>
   </ItemGroup>

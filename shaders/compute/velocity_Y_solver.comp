@@ -9,7 +9,7 @@ layout(bindless_image, r16f)    uniform image2D flowY_Texture_in;
 layout(bindless_image, r16f)    uniform image2D flowY_Texture_out;
 
 uniform uvec2 cell_count;
-uniform float cell_side_lenght;
+uniform float cell_side_length;
 
 uniform float dt;
 uniform float density;
@@ -17,6 +17,7 @@ uniform float density;
 void main() {
     uvec2 id = gl_GlobalInvocationID.xy;
     ivec2 edge_coord = ivec2(id);
+    if (dt <= 0) return;
 
     ivec2 imgSize = imageSize(flowY_Texture_in);
     if (edge_coord.x < 0 || edge_coord.y < 0 || edge_coord.x >= imgSize.x || edge_coord.y >= imgSize.y)
@@ -35,9 +36,9 @@ void main() {
     
     float pressure_diff = pressure_down - pressure_up;
 
-    float force = pressure_diff * cell_side_lenght;
+    float force = pressure_diff * cell_side_length;
 
-    float mass = cell_side_lenght * cell_side_lenght * density;
+    float mass = cell_side_length * cell_side_length * density;
 
     float acceleration = force / mass;
     

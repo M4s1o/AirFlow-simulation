@@ -151,6 +151,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="fluid_grid.h" />
     <ClCompile Include="imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
@@ -164,6 +165,8 @@
     <ClCompile Include="source\graphics_API_extension.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaders\compute\divergence_solver.comp" />
+    <None Include="shaders\compute\neighbor_pressure_solver.comp" />
     <None Include="shaders\compute\pressure_solver.comp" />
     <None Include="shaders\compute\velocity_X_solver.comp" />
     <None Include="shaders\compute\velocity_Y_solver.comp" />
@@ -171,6 +174,9 @@
     <None Include="shaders\rendering\render_cell.vert" />
     <None Include="shaders\rendering\render_flow.frag" />
     <None Include="shaders\rendering\render_flow.vert" />
+    <None Include="shaders\rendering\render_flow_X&amp;Y.frag" />
+    <None Include="shaders\rendering\render_flow_X.vert" />
+    <None Include="shaders\rendering\render_flow_Y.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
