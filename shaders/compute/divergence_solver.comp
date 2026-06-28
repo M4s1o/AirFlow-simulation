@@ -51,7 +51,7 @@ void main() {
 
     float velocity_term;
     if (active_cell_count == 0) velocity_term = 0;
-    else velocity_term = (divergence) / (active_cell_count * (cell_side_length * density) / dt);
+    else velocity_term = (divergence * cell_side_length * density) / (active_cell_count * dt);
 
     vec4 divergence_data = imageLoad(divergenceData_Texture_in, cell_coord);
     divergence_data.r = divergence;

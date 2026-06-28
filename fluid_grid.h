@@ -58,8 +58,8 @@ public:
 	float dt = 0.0f; // s
 
 	int render_mode = divergence_view;
-	float arrow_scale = 0.03;
-	float arrow_value = 0.5;
+	float arrow_scale = 0.1f;
+	float arrow_value = 2.0f;
 
 	float SOR = 0.3f;
 

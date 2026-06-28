@@ -43,7 +43,7 @@ int main() {
 	ImGui_ImplOpenGL3_Init("#version 460");
 	ImGui::StyleColorsDark();
 
-	FluidGrid fluid_grid({ 10, 10 });
+	FluidGrid fluid_grid({ 8, 8 });
 
 	while (!window.shouldClose()) {
 		window.updateFormat();
@@ -68,69 +68,6 @@ int main() {
 		//	pixels.data()
 		//);
 
-		//static bool last_lmb = false;
-		//static double last_x = 0, last_y = 0;
-		//
-		//double x, y;
-		//glfwGetCursorPos(window.getContext(), &x, &y);
-		//x = (x / window.getFormat()->width) * 2.0 - 1.0;
-		//y = (1.0 - y / window.getFormat()->height) * 2.0 - 1.0;
-		//
-		//if (glfwGetMouseButton(window.getContext(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-		//	if (last_lmb) {
-		//		double dx = x - last_x;
-		//		double dy = y - last_y;
-		//
-		//		// find nearest flowX face
-		//		float cell_w = 2.0f / cell_count.x;
-		//		float cell_h = 2.0f / cell_count.y;
-		//
-		//		// flowX faces at x = -1 + i * cell_w, y = -1 + (j + 0.5) * cell_h
-		//		int best_xi = (int)round((x + 1.0) / cell_w);
-		//		int best_xj = (int)floor((y + 1.0) / cell_h);
-		//		best_xi = glm::clamp(best_xi, 0, cell_count.x);
-		//		best_xj = glm::clamp(best_xj, 0, cell_count.y - 1);
-		//		float fx = -1.0f + best_xi * cell_w;
-		//		float fy = -1.0f + (best_xj + 0.5f) * cell_h;
-		//		float dist_x = (x - fx) * (x - fx) + (y - fy) * (y - fy);
-		//
-		//		// flowY faces at x = -1 + (i + 0.5) * cell_w, y = -1 + j * cell_h
-		//		int best_yi = (int)floor((x + 1.0) / cell_w);
-		//		int best_yj = (int)round((y + 1.0) / cell_h);
-		//		best_yi = glm::clamp(best_yi, 0, cell_count.x - 1);
-		//		best_yj = glm::clamp(best_yj, 0, cell_count.y);
-		//		float gx = -1.0f + (best_yi + 0.5f) * cell_w;
-		//		float gy = -1.0f + best_yj * cell_h;
-		//		float dist_y = (x - gx) * (x - gx) + (y - gy) * (y - gy);
-		//
-		//		if (dist_x < dist_y) {
-		//			// modify flowX
-		//			std::vector<float> val(1);
-		//			glGetTextureSubImage(flowX[current_flow_data].getID(), 0,
-		//				best_xi, best_xj, 0, 1, 1, 1, GL_RED, GL_FLOAT, sizeof(float), val.data());
-		//			val[0] += (float)dx * 100.0f;
-		//			flowX[current_flow_data].write(best_xi, best_xj, 0, 1, 1, GL_RED, GL_FLOAT, val.data());
-		//			flowX[!current_flow_data].write(best_xi, best_xj, 0, 1, 1, GL_RED, GL_FLOAT, val.data());
-		//		}
-		//		else {
-		//			// modify flowY
-		//			std::vector<float> val(1);
-		//			glGetTextureSubImage(flowY[current_flow_data].getID(), 0,
-		//				best_yi, best_yj, 0, 1, 1, 1, GL_RED, GL_FLOAT, sizeof(float), val.data());
-		//			val[0] += (float)dy * 100.0f;
-		//			flowY[current_flow_data].write(best_yi, best_yj, 0, 1, 1, GL_RED, GL_FLOAT, val.data());
-		//			flowY[!current_flow_data].write(best_yi, best_yj, 0, 1, 1, GL_RED, GL_FLOAT, val.data());
-		//		}
-		//		std::cout << "dx: " << dx << " dy: " << dy << " dist_x: " << dist_x << " dist_y: " << dist_y << std::endl;
-		//	}
-		//	last_lmb = true;
-		//	last_x = x;
-		//	last_y = y;
-		//}
-		//else {
-		//	last_lmb = false;
-		//}
-
 		fluid_grid.render_cells();
 
 		ImGui_ImplOpenGL3_NewFrame();
@@ -145,8 +82,8 @@ int main() {
 
 		if (ImGui::TreeNode("flow arrows"))
 		{
-			ImGui::SliderFloat("arrow scale", &fluid_grid.arrow_scale, 0.0f, 0.15f, "%.3f");
-			ImGui::SliderFloat("arrow value", &fluid_grid.arrow_value, 0.0f, 0.6f, "%.3f");
+			ImGui::SliderFloat("arrow scale", &fluid_grid.arrow_scale, 0.0f, 0.3f, "%.3f");
+			ImGui::SliderFloat("arrow value", &fluid_grid.arrow_value, 0.0f, 3.0f, "%.3f");
 			static float vector_color[4] = {0.1, 0.1, 0.8, 1.0};
 			ImGui::ColorEdit4("color", vector_color);
 
@@ -161,6 +98,24 @@ int main() {
 		}
 		if (ImGui::Button("randomize")) {
 			randomizeSimulation(fluid_grid.cellData, fluid_grid.flowX, fluid_grid.flowY, fluid_grid.getGridSize());
+		}
+		if (ImGui::Button("reset")) {
+			ImGui::Text("not yet implemented");
+		}
+		if (ImGui::Button("experiment")) {
+			float speed = 0.25f;
+			fluid_grid.flowX[0].write(
+				0, 5, 1,
+				1, 1,
+				GL_RED,
+				GL_FLOAT,
+				&speed);
+			fluid_grid.flowX[1].write(
+				0, 5, 1,
+				1, 1,
+				GL_RED,
+				GL_FLOAT,
+				&speed);
 		}
 		ImGui::End();
 
@@ -216,16 +171,14 @@ void randomizeSimulation(
 		v = (((float)rand() / RAND_MAX) * 2.0f - 1.0f) * 0.25f;
 	}
 
-	// Zero border faces of flowX (x=0 and x=cell_count.x columns)
 	for (int y = 0; y < cellCount.y; y++) {
-		flowXPixels[y * (cellCount.x + 1) + 0] = 0.0f; // left border
-		flowXPixels[y * (cellCount.x + 1) + cellCount.x] = 0.0f; // right border
+		flowXPixels[y * (cellCount.x + 1) + 0] = 0.0f;
+		flowXPixels[y * (cellCount.x + 1) + cellCount.x] = 0.0f;
 	}
 
-	// Zero border faces of flowY (y=0 and y=cell_count.y rows)
 	for (int x = 0; x < cellCount.x; x++) {
-		flowYPixels[0 * cellCount.x + x] = 0.0f; // bottom border
-		flowYPixels[cellCount.y * cellCount.x + x] = 0.0f; // top border
+		flowYPixels[0 * cellCount.x + x] = 0.0f;
+		flowYPixels[cellCount.y * cellCount.x + x] = 0.0f;
 	}
 
 	for (int i = 0; i < 2; i++) {

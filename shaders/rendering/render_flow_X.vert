@@ -36,7 +36,7 @@ void main() {
     vec2 vertex_position = verts[vertex_id % 9];
     vec2 vector_position = vec2(vector_coord) * cell_size - 1.0 + vec2(0.0, cell_size.y * 0.5);
 
-    vec2 vertex_scale = vec2(vector_scale.y, vector_scale.x) * vec2(min(1.0, vector_value), 1.0);
+    vec2 vertex_scale = vec2(vector_scale.y, vector_scale.x) * vec2(min(1.0, vector_value), 1.0) * cell_size;
     vec2 position = vector_position + vertex_position * vertex_scale;
 
     gl_Position = vec4(position, 0.1, 1.0);
