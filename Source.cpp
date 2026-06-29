@@ -53,9 +53,7 @@ int main() {
 		window.setViewportSize(1, 1, 0, 0);
 		window.setViewport();
 
-		fluid_grid.compute_divergence();
-		fluid_grid.compute_pressure(100);
-		fluid_grid.compute_velocities();
+		//fluid_grid.compute_velocity_advection();
 
 		//std::vector<glm::vec4> pixels(cellData[current_data].getWidth() * cellData[current_data].getHeight());
 		//
@@ -76,6 +74,7 @@ int main() {
 
 		ImGui::Begin("settings");
 		ImGui::SliderFloat("delta time", &fluid_grid.dt, 0, 1.0f / 20.0f, "%.7f");
+		ImGui::SliderFloat("sor weight", &fluid_grid.SOR, 1.0f, 2.0f, "%.3f");
 
 		const char* items[] = { "divergence", "pressure"};
 		ImGui::Combo("render mode", &fluid_grid.render_mode, items, 2);
@@ -96,6 +95,15 @@ int main() {
 
 			ImGui::TreePop();
 		}
+		if (ImGui::Button("run pressure")) {
+			fluid_grid.compute_pressure(1);
+		}
+		if (ImGui::Button("run divergence")) {
+			fluid_grid.compute_divergence();
+		}
+		if (ImGui::Button("run velocities")) {
+			fluid_grid.compute_velocities();
+		}
 		if (ImGui::Button("randomize")) {
 			randomizeSimulation(fluid_grid.cellData, fluid_grid.flowX, fluid_grid.flowY, fluid_grid.getGridSize());
 		}
@@ -105,13 +113,13 @@ int main() {
 		if (ImGui::Button("experiment")) {
 			float speed = 0.25f;
 			fluid_grid.flowX[0].write(
-				0, 5, 1,
+				0, 4, 4,
 				1, 1,
 				GL_RED,
 				GL_FLOAT,
 				&speed);
 			fluid_grid.flowX[1].write(
-				0, 5, 1,
+				0, 4, 4,
 				1, 1,
 				GL_RED,
 				GL_FLOAT,

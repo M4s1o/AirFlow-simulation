@@ -3,18 +3,19 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(bindless_image, rg16f) coherent uniform image2D divergenceData_Texture_in;
-layout(bindless_image, r16f)  coherent uniform image2D flowX_Texture_in;
-layout(bindless_image, r16f)  coherent uniform image2D flowY_Texture_in;
+layout(bindless_image, rgba16f) coherent uniform image2D cellData_Texture_in;
+layout(bindless_image, rg16f)   coherent uniform image2D divergenceData_Texture_in;
+layout(bindless_image, r16f)    coherent uniform image2D flowX_Texture_in;
+layout(bindless_image, r16f)    coherent uniform image2D flowY_Texture_in;
 
-layout(bindless_image, rg16f) coherent uniform image2D divergenceData_Texture_out;
+layout(bindless_image, rgba16f) coherent uniform image2D cellData_Texture_out;
+layout(bindless_image, rg16f)   coherent uniform image2D divergenceData_Texture_out;
 
 uniform uvec2 cell_count;
 uniform float cell_side_length;
 
 uniform float dt;
 uniform float density;
-
 
 bool cellExists(ivec2 cell_coord) {
     if (cell_coord.x < 0 || cell_coord.y < 0) return false;
@@ -41,11 +42,11 @@ void main() {
         uint(cell_flag_left);
 
     if (active_cell_count == 0) return;
-
-    float velocity_left   = cell_flag_top    ? imageLoad(flowX_Texture_in, ivec2(cell_coord.x,     cell_coord.y    )).x : 0.0;
-    float velocity_right  = cell_flag_right  ? imageLoad(flowX_Texture_in, ivec2(cell_coord.x + 1, cell_coord.y    )).x : 0.0;
-    float velocity_top    = cell_flag_bottom ? imageLoad(flowY_Texture_in, ivec2(cell_coord.x,     cell_coord.y + 1)).x : 0.0;
-    float velocity_bottom = cell_flag_left   ? imageLoad(flowY_Texture_in, ivec2(cell_coord.x,     cell_coord.y    )).x : 0.0;
+    
+    float velocity_top    = cell_flag_top    ? imageLoad(flowY_Texture_in, cell_coord + ivec2(0, 1)).x : 0.0;
+    float velocity_right  = cell_flag_right  ? imageLoad(flowX_Texture_in, cell_coord + ivec2(1, 0)).x : 0.0;
+    float velocity_bottom = cell_flag_bottom ? imageLoad(flowY_Texture_in, cell_coord + ivec2(0, 0)).x : 0.0;
+    float velocity_left   = cell_flag_left   ? imageLoad(flowX_Texture_in, cell_coord + ivec2(0, 0)).x : 0.0;
 
     float divergence = velocity_right - velocity_left + velocity_top - velocity_bottom;
 
@@ -57,4 +58,8 @@ void main() {
     divergence_data.r = divergence;
     divergence_data.g = velocity_term;
     imageStore(divergenceData_Texture_out, cell_coord, divergence_data);
+
+    vec4 cell_data = imageLoad(cellData_Texture_in, cell_coord);
+    cell_data.x = 0.0;
+    imageStore(cellData_Texture_in, cell_coord, cell_data);
 }

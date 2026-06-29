@@ -1,0 +1,49 @@
+#version 460 core
+#extension GL_ARB_bindless_texture : require
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(bindless_image, rgba16f) uniform image2D cellData_Texture_in;
+layout(bindless_image, r16f)    uniform image2D flowX_Texture_in;
+
+layout(bindless_image, r16f)    uniform image2D flowX_Texture_out;
+
+uniform uvec2 cell_count;
+uniform float cell_side_length;
+
+uniform float dt;
+uniform float density;
+
+void main() {
+    uvec2 id = gl_GlobalInvocationID.xy;
+    ivec2 edge_coord = ivec2(id);
+    if (dt <= 0) return;
+
+    ivec2 imgSize = imageSize(flowX_Texture_in);
+    if (edge_coord.x < 0 || edge_coord.y < 0 || edge_coord.x >= imgSize.x || edge_coord.y >= imgSize.y)
+        return;
+
+    bool has_left  = (edge_coord.x > 0);
+    bool has_right = (edge_coord.x < int(cell_count.x)) && (edge_coord.x < imgSize.x);
+
+    if (!has_right || !has_left) {
+        imageStore(flowX_Texture_out, edge_coord, vec4(0.0, 0.0, 0.0, 0.0));
+        return;
+    }
+
+    float pressure_left  = has_left  ? imageLoad(cellData_Texture_in, ivec2(edge_coord.x - 1, edge_coord.y)).x : 0.0;
+    float pressure_right = has_right ? imageLoad(cellData_Texture_in, ivec2(edge_coord.x,     edge_coord.y)).x : 0.0;
+
+    float pressure_diff = pressure_left - pressure_right;
+
+    float force = pressure_diff * cell_side_length;
+
+    float mass = cell_side_length * cell_side_length * density;
+
+    float acceleration = force / mass;
+    
+    float old_velocity = imageLoad(flowX_Texture_in, edge_coord).x;
+    float new_velocity = old_velocity + acceleration * dt;
+    
+    imageStore(flowX_Texture_out, edge_coord, vec4(new_velocity, 0.0, 0.0, 0.0));
+}

@@ -1,0 +1,34 @@
+#version 460 core
+#extension GL_ARB_bindless_texture : require
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(bindless_image, r16f) uniform image2D flowX_Texture_in;
+layout(bindless_image, r16f) uniform image2D flowY_Texture_in;
+
+layout(bindless_image, r16f) uniform image2D flowY_Texture_out;
+
+uniform uvec2 cell_count;
+uniform float cell_side_length;
+
+uniform float dt;
+uniform float density;
+
+void main() {
+    uvec2 id = gl_GlobalInvocationID.xy;
+    ivec2 edge_coord = ivec2(id);
+    if (dt <= 0) return;
+
+    ivec2 imgSize = imageSize(flowY_Texture_in);
+    if (edge_coord.x < 0 || edge_coord.y < 0 || edge_coord.x >= imgSize.x || edge_coord.y >= imgSize.y)
+        return;
+
+    vec2 velocity_at_point = vec2(
+        imageLoad(flowX_Texture_in, edge_coord),
+        imageLoad(flowY_Texture_in, edge_coord)
+    )
+
+    float new_velocity;
+    
+    imageStore(flowY_Texture_out, edge_coord, vec4(new_velocity, 0.0, 0.0, 0.0));
+}
