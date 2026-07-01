@@ -61,8 +61,9 @@ public:
 	int render_mode = divergence_view;
 	float arrow_scale = 0.1f;
 	float arrow_value = 2.0f;
+	float render_intensivity = 1.0f;
 
-	float SOR = 0.3f;
+	float SOR = 1.0f;
 
 	FluidGrid(glm::vec2 cell_count)
 		: cell_count(cell_count) {
@@ -91,6 +92,12 @@ public:
 
 		velocityYComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "compute/velocity_Y_solver.comp"));
 		velocityYComputeProg.compile();
+
+		advectionXComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "compute/velocity_X_advection.comp"));
+		advectionXComputeProg.compile();
+
+		advectionYComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "compute/velocity_Y_advection.comp"));
+		advectionYComputeProg.compile();
 
 		for (int i = 0; i < 2; i++) {
 
@@ -127,6 +134,7 @@ public:
 		glUniform2ui(glGetUniformLocation(cellRenderProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 		glUniform2i(glGetUniformLocation(cellRenderProg.getID(), "resolution"), getCurrentContext()->getFormat()->width, getCurrentContext()->getFormat()->height);
 		glUniform1i(glGetUniformLocation(cellRenderProg.getID(), "render_mode"), render_mode);
+		glUniform1f(glGetUniformLocation(cellRenderProg.getID(), "render_intensivity"), render_intensivity);
 
 		vao.draw(GL_TRIANGLES, 6);
 	}
@@ -153,7 +161,7 @@ public:
 	void compute_divergence() {
 		divergenceComputeProg.useProgram();
 
-		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "cellData_Texture_out"), cellData[current_data].getImageHandle());
+		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "cellData_Texture_in"), cellData[current_data].getImageHandle());
 		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "divergenceData_Texture_in"), divergenceData[current_divergence_data].getImageHandle());
 		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "flowX_Texture_in"), flowX[current_flow_data].getImageHandle());
 		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "flowY_Texture_in"), flowY[current_flow_data].getImageHandle());
@@ -169,6 +177,7 @@ public:
 		divergenceComputeProg.runCompute(cell_count.x, cell_count.y, 1, GL_ALL_BARRIER_BITS);
 
 		current_divergence_data = !current_divergence_data;
+		current_data = !current_data;
 	}
 	void compute_pressure(unsigned int iterations) {
 		pressureComputeProg.useProgram();

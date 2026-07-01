@@ -3,16 +3,32 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(bindless_image, rgba16f) uniform image2D cellData_Texture_in;
-layout(bindless_image, r16f)    uniform image2D flowX_Texture_in;
+layout(bindless_image, r16f) uniform image2D flowX_Texture_in;
+layout(bindless_image, r16f) uniform image2D flowY_Texture_in;
 
-layout(bindless_image, r16f)    uniform image2D flowX_Texture_out;
+layout(bindless_image, r16f) uniform image2D flowX_Texture_out;
 
 uniform uvec2 cell_count;
 uniform float cell_side_length;
 
 uniform float dt;
 uniform float density;
+
+float sampleBiLinear(vec2 position, float top_left, float top_right, float bottom_right, float bottom_left) {
+    position = clamp(position, 0.0, 1.0);
+
+    float top = 
+        position.x * top_right +
+        (1.0 - position.x) * top_left;
+    
+    float bottom = 
+        position.x * bottom_right +
+        (1.0 - position.x) * bottom_left;
+
+    return 
+        position.y * top +
+        (1.0 - position.y) * bottom;
+}
 
 void main() {
     uvec2 id = gl_GlobalInvocationID.xy;
@@ -31,19 +47,28 @@ void main() {
         return;
     }
 
-    float pressure_left  = has_left  ? imageLoad(cellData_Texture_in, ivec2(edge_coord.x - 1, edge_coord.y)).x : 0.0;
-    float pressure_right = has_right ? imageLoad(cellData_Texture_in, ivec2(edge_coord.x,     edge_coord.y)).x : 0.0;
+    vec2 old_velocity = vec2(
+        imageLoad(flowX_Texture_in, edge_coord).x, (
+        imageLoad(flowY_Texture_in, ivec2(edge_coord.x,     edge_coord.y    )).x +
+        imageLoad(flowY_Texture_in, ivec2(edge_coord.x + 1, edge_coord.y    )).x +
+        imageLoad(flowY_Texture_in, ivec2(edge_coord.x + 1, edge_coord.y + 1)).x +
+        imageLoad(flowY_Texture_in, ivec2(edge_coord.x,     edge_coord.y + 1)).x) / 4
+    );
 
-    float pressure_diff = pressure_left - pressure_right;
+    vec2 sample_point_X = vec2(edge_coord) * cell_side_length + vec2(-cell_side_length * 0.5, cell_side_length * 0.5) - old_velocity * dt;
 
-    float force = pressure_diff * cell_side_length;
+    ivec2 bottom_left_X_sample_coord = ivec2(floor(sample_point_X / cell_side_length));
 
-    float mass = cell_side_length * cell_side_length * density;
+    vec2 bottom_left_X_sample_position = vec2(bottom_left_X_sample_coord) * cell_side_length;
 
-    float acceleration = force / mass;
+    vec2 local_sample_point_X = sample_point_X - bottom_left_X_sample_position;
     
-    float old_velocity = imageLoad(flowX_Texture_in, edge_coord).x;
-    float new_velocity = old_velocity + acceleration * dt;
+    float new_velocity = sampleBiLinear(local_sample_point_X,
+        imageLoad(flowX_Texture_in, ivec2(bottom_left_X_sample_coord.x,     bottom_left_X_sample_coord.y + 1)).x,
+        imageLoad(flowX_Texture_in, ivec2(bottom_left_X_sample_coord.x + 1, bottom_left_X_sample_coord.y + 1)).x,
+        imageLoad(flowX_Texture_in, ivec2(bottom_left_X_sample_coord.x + 1, bottom_left_X_sample_coord.y    )).x,
+        imageLoad(flowX_Texture_in, ivec2(bottom_left_X_sample_coord.x,     bottom_left_X_sample_coord.y    )).x
+    );
     
     imageStore(flowX_Texture_out, edge_coord, vec4(new_velocity, 0.0, 0.0, 0.0));
 }

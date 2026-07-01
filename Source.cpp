@@ -35,6 +35,7 @@ int main() {
 	//window.setVsync(false);
 	//window.setResizable(false);
 	window.setSize(0, 0, 800, 800);
+	window.setName("Air - flower");
 
 	// ImGui setup
 	IMGUI_CHECKVERSION();
@@ -45,12 +46,14 @@ int main() {
 
 	FluidGrid fluid_grid({ 8, 8 });
 
+	fluid_grid.dt = 0.05f;
+
 	while (!window.shouldClose()) {
 		window.updateFormat();
 		window.clear(GL_COLOR_BUFFER_BIT);
-		window.setBackground(0.5, 0.1, 0.1, 1);
-		window.setViewportPos(0, 0, 0, 0);
-		window.setViewportSize(1, 1, 0, 0);
+		window.setBackground(0.1, 0.1, 0.1, 1);
+		window.setViewportPos(0.025, 0.025, 0, 0);
+		window.setViewportSize(0.95, 0.95, 0, 0);
 		window.setViewport();
 
 		//fluid_grid.compute_velocity_advection();
@@ -66,8 +69,6 @@ int main() {
 		//	pixels.data()
 		//);
 
-		fluid_grid.render_cells();
-
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
@@ -75,9 +76,12 @@ int main() {
 		ImGui::Begin("settings");
 		ImGui::SliderFloat("delta time", &fluid_grid.dt, 0, 1.0f / 20.0f, "%.7f");
 		ImGui::SliderFloat("sor weight", &fluid_grid.SOR, 1.0f, 2.0f, "%.3f");
+		ImGui::SliderFloat("intensivity", &fluid_grid.render_intensivity, 0.1f, 32.0f, "%.3f");
 
 		const char* items[] = { "divergence", "pressure"};
 		ImGui::Combo("render mode", &fluid_grid.render_mode, items, 2);
+
+		fluid_grid.render_cells();
 
 		if (ImGui::TreeNode("flow arrows"))
 		{
@@ -96,13 +100,32 @@ int main() {
 			ImGui::TreePop();
 		}
 		if (ImGui::Button("run pressure")) {
-			fluid_grid.compute_pressure(1);
+			fluid_grid.compute_pressure(10000);
 		}
 		if (ImGui::Button("run divergence")) {
 			fluid_grid.compute_divergence();
 		}
 		if (ImGui::Button("run velocities")) {
 			fluid_grid.compute_velocities();
+		}
+		if (ImGui::Button("run advection")) {
+			fluid_grid.compute_velocity_advection();
+		}
+		if (ImGui::Button("run program")) {
+			fluid_grid.compute_velocity_advection();
+			fluid_grid.compute_divergence();
+			fluid_grid.compute_pressure(100);
+			fluid_grid.compute_velocities();
+		}
+		static bool run = false;
+		if (ImGui::Button("run")) {
+			run = !run;
+		}
+		if (run) {
+			fluid_grid.compute_divergence();
+			fluid_grid.compute_pressure(100);
+			fluid_grid.compute_velocities();
+			fluid_grid.compute_velocity_advection();
 		}
 		if (ImGui::Button("randomize")) {
 			randomizeSimulation(fluid_grid.cellData, fluid_grid.flowX, fluid_grid.flowY, fluid_grid.getGridSize());
@@ -111,15 +134,15 @@ int main() {
 			ImGui::Text("not yet implemented");
 		}
 		if (ImGui::Button("experiment")) {
-			float speed = 0.25f;
+			float speed = 0.5f;
 			fluid_grid.flowX[0].write(
-				0, 4, 4,
+				0, fluid_grid.getGridSize().x / 2, fluid_grid.getGridSize().y / 2,
 				1, 1,
 				GL_RED,
 				GL_FLOAT,
 				&speed);
 			fluid_grid.flowX[1].write(
-				0, 4, 4,
+				0, fluid_grid.getGridSize().x / 2, fluid_grid.getGridSize().y / 2,
 				1, 1,
 				GL_RED,
 				GL_FLOAT,
