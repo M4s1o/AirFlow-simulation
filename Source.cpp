@@ -44,7 +44,7 @@ int main() {
 	ImGui_ImplOpenGL3_Init("#version 460");
 	ImGui::StyleColorsDark();
 
-	FluidGrid fluid_grid({ 8, 8 });
+	FluidGrid fluid_grid({ 9, 9 });
 
 	fluid_grid.dt = 0.05f;
 
@@ -112,10 +112,10 @@ int main() {
 			fluid_grid.compute_velocity_advection();
 		}
 		if (ImGui::Button("run program")) {
-			fluid_grid.compute_velocity_advection();
 			fluid_grid.compute_divergence();
-			fluid_grid.compute_pressure(100);
+			fluid_grid.compute_pressure(1000);
 			fluid_grid.compute_velocities();
+			fluid_grid.compute_velocity_advection();
 		}
 		static bool run = false;
 		if (ImGui::Button("run")) {
@@ -123,9 +123,22 @@ int main() {
 		}
 		if (run) {
 			fluid_grid.compute_divergence();
-			fluid_grid.compute_pressure(100);
+			fluid_grid.compute_pressure(1000);
 			fluid_grid.compute_velocities();
 			fluid_grid.compute_velocity_advection();
+			//float speed = 0.5f;
+			//fluid_grid.flowX[0].write(
+			//	0, 1, fluid_grid.getGridSize().y / 2,
+			//	1, 1,
+			//	GL_RED,
+			//	GL_FLOAT,
+			//	&speed);
+			//fluid_grid.flowX[1].write(
+			//	0, 1, fluid_grid.getGridSize().y / 2,
+			//	1, 1,
+			//	GL_RED,
+			//	GL_FLOAT,
+			//	&speed);
 		}
 		if (ImGui::Button("randomize")) {
 			randomizeSimulation(fluid_grid.cellData, fluid_grid.flowX, fluid_grid.flowY, fluid_grid.getGridSize());
@@ -136,13 +149,13 @@ int main() {
 		if (ImGui::Button("experiment")) {
 			float speed = 0.5f;
 			fluid_grid.flowX[0].write(
-				0, fluid_grid.getGridSize().x / 2, fluid_grid.getGridSize().y / 2,
+				0, 0, fluid_grid.getGridSize().y / 2,
 				1, 1,
 				GL_RED,
 				GL_FLOAT,
 				&speed);
 			fluid_grid.flowX[1].write(
-				0, fluid_grid.getGridSize().x / 2, fluid_grid.getGridSize().y / 2,
+				0, 0, fluid_grid.getGridSize().y / 2,
 				1, 1,
 				GL_RED,
 				GL_FLOAT,

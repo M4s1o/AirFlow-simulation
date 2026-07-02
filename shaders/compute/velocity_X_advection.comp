@@ -55,13 +55,15 @@ void main() {
         imageLoad(flowY_Texture_in, ivec2(edge_coord.x,     edge_coord.y + 1)).x) / 4
     );
 
-    vec2 sample_point_X = vec2(edge_coord) * cell_side_length + vec2(-cell_side_length * 0.5, cell_side_length * 0.5) - old_velocity * dt;
+    vec2 sample_point_X = vec2(edge_coord) * cell_side_length - old_velocity * dt;
+
+    sample_point_X = clamp(sample_point_X, 0.0, 1.0);
 
     ivec2 bottom_left_X_sample_coord = ivec2(floor(sample_point_X / cell_side_length));
 
     vec2 bottom_left_X_sample_position = vec2(bottom_left_X_sample_coord) * cell_side_length;
 
-    vec2 local_sample_point_X = sample_point_X - bottom_left_X_sample_position;
+    vec2 local_sample_point_X = (sample_point_X - bottom_left_X_sample_position) / cell_side_length;
     
     float new_velocity = sampleBiLinear(local_sample_point_X,
         imageLoad(flowX_Texture_in, ivec2(bottom_left_X_sample_coord.x,     bottom_left_X_sample_coord.y + 1)).x,
