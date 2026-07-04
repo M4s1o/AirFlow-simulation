@@ -14,6 +14,12 @@ uniform float cell_side_length;
 uniform float dt;
 uniform float density;
 
+bool cellExists(ivec2 cell_coord) {
+    if (cell_coord.x < 0 || cell_coord.y < 0) return false;
+    if (cell_coord.x >= int(cell_count.x) || cell_coord.y >= int(cell_count.y + 1)) return false;
+    return true;
+}
+
 float sampleBiLinear(vec2 position, float top_left, float top_right, float bottom_right, float bottom_left) {
     position = clamp(position, 0.0, 1.0);
 
@@ -28,6 +34,36 @@ float sampleBiLinear(vec2 position, float top_left, float top_right, float botto
     return 
         position.y * top +
         (1.0 - position.y) * bottom;
+}
+
+float sampleFlowY(vec2 position) {
+    ivec2 imgSize = imageSize(flowY_Texture_in);
+    vec2 grid_position = position / cell_side_length - vec2(0.5, 0.0);
+    ivec2 base_coord = ivec2(floor(grid_position));
+    vec2 local_position = grid_position - vec2(base_coord);
+    ivec2 max_base_coord = max(imgSize - ivec2(2), ivec2(0));
+    if (base_coord.x < 0) {
+        base_coord.x = 0;
+        local_position.x = 0.0;
+    }
+    if (base_coord.y < 0) {
+        base_coord.y = 0;
+        local_position.y = 0.0;
+    }
+    if (base_coord.x > max_base_coord.x) {
+        base_coord.x = max_base_coord.x;
+        local_position.x = 1.0;
+    }
+    if (base_coord.y > max_base_coord.y) {
+        base_coord.y = max_base_coord.y;
+        local_position.y = 1.0;
+    }
+    return sampleBiLinear(local_position,
+        imageLoad(flowY_Texture_in, base_coord + ivec2(0, 1)).x,
+        imageLoad(flowY_Texture_in, base_coord + ivec2(1, 1)).x,
+        imageLoad(flowY_Texture_in, base_coord + ivec2(1, 0)).x,
+        imageLoad(flowY_Texture_in, base_coord + ivec2(0, 0)).x
+    );
 }
 
 void main() {
@@ -48,29 +84,17 @@ void main() {
     }
 
     vec2 old_velocity = vec2((
-        imageLoad(flowX_Texture_in, ivec2(edge_coord.x,     edge_coord.y    )).x +
+        imageLoad(flowX_Texture_in, ivec2(edge_coord.x,     edge_coord.y - 1)).x +
+        imageLoad(flowX_Texture_in, ivec2(edge_coord.x + 1, edge_coord.y - 1)).x +
         imageLoad(flowX_Texture_in, ivec2(edge_coord.x + 1, edge_coord.y    )).x +
-        imageLoad(flowX_Texture_in, ivec2(edge_coord.x + 1, edge_coord.y + 1)).x +
-        imageLoad(flowX_Texture_in, ivec2(edge_coord.x,     edge_coord.y + 1)).x) / 4,
+        imageLoad(flowX_Texture_in, ivec2(edge_coord.x,     edge_coord.y    )).x) / 4,
         imageLoad(flowY_Texture_in, edge_coord).x
     );
-
-    vec2 sample_point_Y = vec2(edge_coord) * cell_side_length - old_velocity * dt;
-
-    sample_point_Y = clamp(sample_point_Y, 0.0, 1.0);
-
-    ivec2 bottom_left_Y_sample_coord = ivec2(floor(sample_point_Y / cell_side_length));
-
-    vec2 bottom_left_Y_sample_position = vec2(bottom_left_Y_sample_coord) * cell_side_length;
-
-    vec2 local_sample_point_Y = (sample_point_Y - bottom_left_Y_sample_position) / cell_side_length;
+    vec2 sample_point_Y = (vec2(edge_coord) + vec2(0.5, 0.0)) * cell_side_length - old_velocity * dt;
+    sample_point_Y.x = clamp(sample_point_Y.x, 0.5 * cell_side_length, cell_side_length * (float(cell_count.x) - 0.5));
+    sample_point_Y.y = clamp(sample_point_Y.y, 0.0, cell_side_length * cell_count.y);
     
-    float new_velocity = sampleBiLinear(local_sample_point_Y,
-        imageLoad(flowY_Texture_in, ivec2(bottom_left_Y_sample_coord.x,     bottom_left_Y_sample_coord.y + 1)).x,
-        imageLoad(flowY_Texture_in, ivec2(bottom_left_Y_sample_coord.x + 1, bottom_left_Y_sample_coord.y + 1)).x,
-        imageLoad(flowY_Texture_in, ivec2(bottom_left_Y_sample_coord.x + 1, bottom_left_Y_sample_coord.y    )).x,
-        imageLoad(flowY_Texture_in, ivec2(bottom_left_Y_sample_coord.x,     bottom_left_Y_sample_coord.y    )).x
-    );
+    float new_velocity = sampleFlowY(sample_point_Y);
     
     imageStore(flowY_Texture_out, edge_coord, vec4(new_velocity, 0.0, 0.0, 0.0));
 }

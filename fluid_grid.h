@@ -32,19 +32,14 @@ private:
 	ShaderProgram advectionYComputeProg;
 	VAO vao;
 
-	bool current_data            = false;
-	bool current_flow_data       = false;
-	bool current_divergence_data = false;
-
 	glm::ivec2 cell_count = { 6, 6 };
 public:
-	Texture cellData[2] = {
-		Texture(GL_TEXTURE_2D, 1, GL_RGBA16F, cell_count.x, cell_count.y),
-		Texture(GL_TEXTURE_2D, 1, GL_RGBA16F, cell_count.x, cell_count.y)
+	Texture cellData = {
+		Texture(GL_TEXTURE_2D, 1, GL_RGBA32F, cell_count.x, cell_count.y)
 	};
 	Texture divergenceData[2] = {
-		Texture(GL_TEXTURE_2D, 1, GL_RG16F, cell_count.x, cell_count.y),
-		Texture(GL_TEXTURE_2D, 1, GL_RG16F, cell_count.x, cell_count.y)
+		Texture(GL_TEXTURE_2D, 1, GL_RG32F, cell_count.x, cell_count.y),
+		Texture(GL_TEXTURE_2D, 1, GL_RG32F, cell_count.x, cell_count.y)
 	};
 	Texture flowX[2] = {
 		Texture(GL_TEXTURE_2D, 1, GL_R16F, cell_count.x + 1, cell_count.y),
@@ -55,15 +50,8 @@ public:
 		Texture(GL_TEXTURE_2D, 1, GL_R16F, cell_count.x, cell_count.y + 1)
 	};
 
-	float density = 1.225f; // kg*m^-2
-	float dt = 0.0f; // s
-
-	int render_mode = divergence_view;
-	float arrow_scale = 0.1f;
-	float arrow_value = 2.0f;
-	float render_intensivity = 1.0f;
-
-	float SOR = 1.0f;
+	bool current_flow_data = false;
+	bool current_divergence_data = false;
 
 	FluidGrid(glm::vec2 cell_count)
 		: cell_count(cell_count) {
@@ -101,44 +89,44 @@ public:
 
 		for (int i = 0; i < 2; i++) {
 
-			cellData[i].setFilter(GL_NEAREST, GL_NEAREST);
 			divergenceData[i].setFilter(GL_NEAREST, GL_NEAREST);
 			flowX[i].setFilter(GL_NEAREST, GL_NEAREST);
 			flowY[i].setFilter(GL_NEAREST, GL_NEAREST);
 
-			cellData[i].setWrap(GL_REPEAT, GL_REPEAT);
 			divergenceData[i].setWrap(GL_REPEAT, GL_REPEAT);
 			flowX[i].setWrap(GL_REPEAT, GL_REPEAT);
 			flowY[i].setWrap(GL_REPEAT, GL_REPEAT);
 
-			cellData[i].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_RGBA16F);
-			divergenceData[i].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_RG16F);
+			divergenceData[i].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_RG32F);
 			flowX[i].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_R16F);
 			flowY[i].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_R16F);
 
-			cellData[i].loadTexture();
 			divergenceData[i].loadTexture();
 			flowX[i].loadTexture();
 			flowY[i].loadTexture();
 		}
+		cellData.setFilter(GL_NEAREST, GL_NEAREST);
+		cellData.setWrap(GL_REPEAT, GL_REPEAT);
+		cellData.loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_RGBA32F);
+		cellData.loadTexture();
 	}
 
-	void render_cells() {
+	void render_cells(int render_mode, float render_intensity) {
 		cellRenderProg.useProgram();
 
 		glUniformHandleui64ARB(glGetUniformLocation(cellRenderProg.getID(), "divergenceData_Texture"), divergenceData[current_divergence_data].getTextureHandle());
-		glUniformHandleui64ARB(glGetUniformLocation(cellRenderProg.getID(), "cell_texture"), cellData[current_data].getTextureHandle());
+		glUniformHandleui64ARB(glGetUniformLocation(cellRenderProg.getID(), "cell_texture"), cellData.getTextureHandle());
 		glUniformHandleui64ARB(glGetUniformLocation(cellRenderProg.getID(), "flowX_texture"), flowX[current_flow_data].getTextureHandle());
 		glUniformHandleui64ARB(glGetUniformLocation(cellRenderProg.getID(), "flowY_texture"), flowY[current_flow_data].getTextureHandle());
 
 		glUniform2ui(glGetUniformLocation(cellRenderProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 		glUniform2i(glGetUniformLocation(cellRenderProg.getID(), "resolution"), getCurrentContext()->getFormat()->width, getCurrentContext()->getFormat()->height);
 		glUniform1i(glGetUniformLocation(cellRenderProg.getID(), "render_mode"), render_mode);
-		glUniform1f(glGetUniformLocation(cellRenderProg.getID(), "render_intensivity"), render_intensivity);
+		glUniform1f(glGetUniformLocation(cellRenderProg.getID(), "render_intensivity"), render_intensity);
 
 		vao.draw(GL_TRIANGLES, 6);
 	}
-	void render_main_velocities(glm::vec4 color) {
+	void render_main_velocities(float arrow_scale, float arrow_value, glm::vec4 color) {
 		flowXrenderProg.useProgram();
 
 		glUniformHandleui64ARB(glGetUniformLocation(flowXrenderProg.getID(), "flowX_texture"), flowX[current_flow_data].getTextureHandle());
@@ -158,52 +146,55 @@ public:
 		vao.draw(GL_TRIANGLES, 9 * (cell_count.x) * (cell_count.y + 1));
 	}
 
-	void compute_divergence() {
+	void compute_divergence(float dt, float density) {
 		divergenceComputeProg.useProgram();
 
-		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "cellData_Texture_in"), cellData[current_data].getImageHandle());
 		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "divergenceData_Texture_in"), divergenceData[current_divergence_data].getImageHandle());
 		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "flowX_Texture_in"), flowX[current_flow_data].getImageHandle());
 		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "flowY_Texture_in"), flowY[current_flow_data].getImageHandle());
 
-		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "cellData_Texture_out"), cellData[!current_data].getImageHandle());
+		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "cellData_Texture"), cellData.getImageHandle());
+
 		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "divergenceData_Texture_out"), divergenceData[!current_divergence_data].getImageHandle());
 
 		glUniform2ui(glGetUniformLocation(divergenceComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
-		glUniform1f(glGetUniformLocation(divergenceComputeProg.getID(), "cell_side_length"), 1.0f / (float)cell_count.x);
-		glUniform1f(glGetUniformLocation(divergenceComputeProg.getID(), "dt"), dt);
-		glUniform1f(glGetUniformLocation(divergenceComputeProg.getID(), "density"), density);
+		glUniform1f(glGetUniformLocation(divergenceComputeProg.getID(), "K"), dt / (density * (1.0f / (float)cell_count.x)));
 
 		divergenceComputeProg.runCompute(cell_count.x, cell_count.y, 1, GL_ALL_BARRIER_BITS);
 
 		current_divergence_data = !current_divergence_data;
-		current_data = !current_data;
 	}
-	void compute_pressure(unsigned int iterations) {
+	void compute_pressure(unsigned int iterations, float SOR) {
 		pressureComputeProg.useProgram();
 		for (unsigned int i = 0; i < iterations; i++) {
-
-			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "cellData_Texture_in"), cellData[current_data].getImageHandle());
+			// red
 			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "divergenceData_Texture_in"), divergenceData[current_divergence_data].getImageHandle());
 
-			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "cellData_Texture_out"), cellData[!current_data].getImageHandle());
+			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "cellData_Texture"), cellData.getImageHandle());
 
 			glUniform2ui(glGetUniformLocation(pressureComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
-			glUniform1f(glGetUniformLocation(pressureComputeProg.getID(), "cell_side_length"), 1.0f / (float)cell_count.x);
-			glUniform1f(glGetUniformLocation(pressureComputeProg.getID(), "dt"), dt);
-			glUniform1f(glGetUniformLocation(pressureComputeProg.getID(), "density"), density);
+			glUniform1i(glGetUniformLocation(pressureComputeProg.getID(), "red"), true);
 			glUniform1f(glGetUniformLocation(pressureComputeProg.getID(), "SOR"), SOR);
 
-			pressureComputeProg.runCompute(cell_count.x, cell_count.y, 1, GL_ALL_BARRIER_BITS);
+			pressureComputeProg.runCompute(cell_count.x / 2, cell_count.y, 1, GL_ALL_BARRIER_BITS);
 
-			current_data = !current_data;
+			// black
+			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "divergenceData_Texture_in"), divergenceData[current_divergence_data].getImageHandle());
+
+			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "cellData_Texture"), cellData.getImageHandle());
+
+			glUniform2ui(glGetUniformLocation(pressureComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
+			glUniform1i(glGetUniformLocation(pressureComputeProg.getID(), "red"), false);
+			glUniform1f(glGetUniformLocation(pressureComputeProg.getID(), "SOR"), SOR);
+
+			pressureComputeProg.runCompute(cell_count.x / 2, cell_count.y, 1, GL_ALL_BARRIER_BITS);
 		}
 	}
-	void compute_velocities() {
+	void compute_velocities(float dt, float density) {
 		// velocity X compute
 		velocityXComputeProg.useProgram();
 
-		glUniformHandleui64ARB(glGetUniformLocation(velocityXComputeProg.getID(), "cellData_Texture_in"), cellData[current_data].getImageHandle());
+		glUniformHandleui64ARB(glGetUniformLocation(velocityXComputeProg.getID(), "cellData_Texture"), cellData.getImageHandle());
 		glUniformHandleui64ARB(glGetUniformLocation(velocityXComputeProg.getID(), "flowX_Texture_in"), flowX[current_flow_data].getImageHandle());
 
 		glUniformHandleui64ARB(glGetUniformLocation(velocityXComputeProg.getID(), "flowX_Texture_out"), flowX[!current_flow_data].getImageHandle());
@@ -218,7 +209,7 @@ public:
 		// velocity Y compute
 		velocityYComputeProg.useProgram();
 
-		glUniformHandleui64ARB(glGetUniformLocation(velocityYComputeProg.getID(), "cellData_Texture_in"), cellData[current_data].getImageHandle());
+		glUniformHandleui64ARB(glGetUniformLocation(velocityYComputeProg.getID(), "cellData_Texture"), cellData.getImageHandle());
 		glUniformHandleui64ARB(glGetUniformLocation(velocityYComputeProg.getID(), "flowY_Texture_in"), flowY[current_flow_data].getImageHandle());
 
 		glUniformHandleui64ARB(glGetUniformLocation(velocityYComputeProg.getID(), "flowY_Texture_out"), flowY[!current_flow_data].getImageHandle());
@@ -232,7 +223,7 @@ public:
 
 		current_flow_data = !current_flow_data;
 	}
-	void compute_velocity_advection() {
+	void compute_velocity_advection(float dt) {
 		// velocity X compute
 		advectionXComputeProg.useProgram();
 
@@ -264,7 +255,7 @@ public:
 		current_flow_data = !current_flow_data;
 	}
 
-	glm::vec2 getGridSize() {
+	glm::ivec2 getGridSize() {
 		return cell_count;
 	}
 };

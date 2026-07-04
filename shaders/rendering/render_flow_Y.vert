@@ -26,8 +26,8 @@ void main() {
     uvec2 vector_count = uvec2(cell_count.x, cell_count.y + 1);
 
     ivec2 vector_coord = ivec2(uvec2(
-        vector_id % vector_count.y,
-        vector_id / vector_count.y));
+        vector_id % vector_count.x,
+        vector_id / vector_count.x));
 
     float vector_value = imageLoad(flowY_texture, vector_coord).x;
 

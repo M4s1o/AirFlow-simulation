@@ -3,7 +3,7 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(bindless_image, rgba16f) uniform image2D cellData_Texture_in;
+layout(bindless_image, rgba32f) uniform image2D cellData_Texture;
 layout(bindless_image, r16f)    uniform image2D flowY_Texture_in;
 
 layout(bindless_image, r16f)    uniform image2D flowY_Texture_out;
@@ -14,6 +14,12 @@ uniform float cell_side_length;
 uniform float dt;
 uniform float density;
 
+bool cellExists(ivec2 cell_coord) {
+    if (cell_coord.x < 0 || cell_coord.y < 0) return false;
+    if (cell_coord.x >= int(cell_count.x) || cell_coord.y >= int(cell_count.y)) return false;
+    return true;
+}
+
 void main() {
     uvec2 id = gl_GlobalInvocationID.xy;
     ivec2 edge_coord = ivec2(id);
@@ -23,16 +29,16 @@ void main() {
     if (edge_coord.x < 0 || edge_coord.y < 0 || edge_coord.x >= imgSize.x || edge_coord.y >= imgSize.y)
         return;
 
-    bool has_down = (edge_coord.y > 0);
-    bool has_up   = (edge_coord.y < int(cell_count.y)) && (edge_coord.y < imgSize.y);
+    bool has_down = cellExists(ivec2(edge_coord.x, edge_coord.y - 1));
+    bool has_up   = cellExists(edge_coord);
 
     if (!has_up || !has_down) {
         imageStore(flowY_Texture_out, edge_coord, vec4(0.0, 0.0, 0.0, 0.0));
         return;
     }
 
-    float pressure_down = has_down ? imageLoad(cellData_Texture_in, ivec2(edge_coord.x, edge_coord.y - 1)).x : 0.0;
-    float pressure_up   = has_up   ? imageLoad(cellData_Texture_in, ivec2(edge_coord.x, edge_coord.y    )).x : 0.0;
+    float pressure_down = has_down ? imageLoad(cellData_Texture, ivec2(edge_coord.x, edge_coord.y - 1)).x : 0.0;
+    float pressure_up   = has_up   ? imageLoad(cellData_Texture, ivec2(edge_coord.x, edge_coord.y    )).x : 0.0;
     
     float pressure_diff = pressure_down - pressure_up;
 

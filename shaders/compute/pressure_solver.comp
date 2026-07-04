@@ -3,17 +3,28 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(bindless_image, rgba16f) coherent uniform image2D cellData_Texture_in;
-layout(bindless_image, rg16f)   coherent uniform image2D divergenceData_Texture_in;
+layout(bindless_image, rg32f)   coherent uniform image2D divergenceData_Texture_in;
 
-layout(bindless_image, rgba16f) coherent uniform image2D cellData_Texture_out;
+layout(bindless_image, rgba32f) coherent uniform image2D cellData_Texture;
 
 uniform uvec2 cell_count;
-uniform float cell_side_length;
 
-uniform float dt;
-uniform float density;
+uniform bool red;
+
 uniform float SOR;
+
+ivec2 getRBcoord(ivec2 id) {
+    if (red)
+        return ivec2(
+            id.x * 2 + id.y % 2,
+            id.y
+        );
+    else
+        return ivec2(
+            id.x * 2 + 1 - id.y % 2,
+            id.y
+        );
+}
 
 bool cellExists(ivec2 cell_coord) {
     if (cell_coord.x < 0 || cell_coord.y < 0) return false;
@@ -23,10 +34,9 @@ bool cellExists(ivec2 cell_coord) {
 
 void main() {
     uvec2 ucell = gl_GlobalInvocationID.xy;
-    if (ucell.x >= cell_count.x || ucell.y >= cell_count.y) return;
-    if (dt <= 0) return;
 
-    ivec2 cell_coord = ivec2(ucell);
+    ivec2 cell_coord = getRBcoord(ivec2(ucell));
+    if (!cellExists(cell_coord)) return;
 
     bool cell_flag_top    = cellExists(cell_coord + ivec2(0,  1));
     bool cell_flag_right  = cellExists(cell_coord + ivec2(1,  0));
@@ -41,12 +51,12 @@ void main() {
 
     if (active_cell_count == 0) return;
 
-    float pressure_top    = cell_flag_top    ? imageLoad(cellData_Texture_in, cell_coord + ivec2(0,  1)).x : 0.0;
-    float pressure_right  = cell_flag_right  ? imageLoad(cellData_Texture_in, cell_coord + ivec2(1,  0)).x : 0.0;
-    float pressure_bottom = cell_flag_bottom ? imageLoad(cellData_Texture_in, cell_coord + ivec2(0, -1)).x : 0.0;
-    float pressure_left   = cell_flag_left   ? imageLoad(cellData_Texture_in, cell_coord + ivec2(-1, 0)).x : 0.0;
+    float pressure_top    = cell_flag_top    ? imageLoad(cellData_Texture, cell_coord + ivec2(0,  1)).x : 0.0;
+    float pressure_right  = cell_flag_right  ? imageLoad(cellData_Texture, cell_coord + ivec2(1,  0)).x : 0.0;
+    float pressure_bottom = cell_flag_bottom ? imageLoad(cellData_Texture, cell_coord + ivec2(0, -1)).x : 0.0;
+    float pressure_left   = cell_flag_left   ? imageLoad(cellData_Texture, cell_coord + ivec2(-1, 0)).x : 0.0;
 
-    vec4 cell_data = imageLoad(cellData_Texture_in, cell_coord);
+    vec4 cell_data = imageLoad(cellData_Texture, cell_coord);
     vec4 divergence_data = imageLoad(divergenceData_Texture_in, cell_coord);
 
     float old_pressure = cell_data.x;
@@ -59,5 +69,5 @@ void main() {
 
     cell_data.x = relaxated_pressure;
 
-    imageStore(cellData_Texture_out, cell_coord, cell_data);
+    imageStore(cellData_Texture, cell_coord, cell_data);
 }
