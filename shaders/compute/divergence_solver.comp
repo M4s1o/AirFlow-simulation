@@ -3,21 +3,21 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(bindless_image, rg32f)   coherent uniform image2D divergenceData_Texture_in;
-layout(bindless_image, r16f)    coherent uniform image2D flowX_Texture_in;
-layout(bindless_image, r16f)    coherent uniform image2D flowY_Texture_in;
+layout(bindless_image, rg32f) coherent uniform image2D divergence_Texture_in;
+layout(bindless_image, r16f)  coherent uniform image2D flowX_Texture_in;
+layout(bindless_image, r16f)  coherent uniform image2D flowY_Texture_in;
 
-layout(bindless_image, rgba32f) coherent uniform image2D cellData_Texture;
+layout(bindless_image, r32f)  coherent uniform image2D pressure_Texture;
 
-layout(bindless_image, rg32f)   coherent uniform image2D divergenceData_Texture_out;
+layout(bindless_image, rg32f) coherent uniform image2D divergence_Texture_out;
 
-uniform uvec2 cell_count;
+uniform ivec2 cell_count;
 
-uniform float K;
+uniform float K; // dt / (density * cell_side_lenght)
 
 bool cellExists(ivec2 cell_coord) {
     if (cell_coord.x < 0 || cell_coord.y < 0) return false;
-    if (cell_coord.x >= int(cell_count.x) || cell_coord.y >= int(cell_count.y)) return false;
+    if (cell_coord.x >= cell_count.x || cell_coord.y >= cell_count.y) return false;
     return true;
 }
 
@@ -48,14 +48,12 @@ void main() {
 
     float divergence = velocity_right - velocity_left + velocity_top - velocity_bottom;
 
-    float velocity_term = (divergence) / (active_cell_count * K);
+    float velocity_term = divergence / (active_cell_count * K);
 
-    vec4 divergence_data = imageLoad(divergenceData_Texture_in, cell_coord);
+    vec4 divergence_data = imageLoad(divergence_Texture_in, cell_coord);
     divergence_data.r = divergence;
     divergence_data.g = velocity_term;
-    imageStore(divergenceData_Texture_out, cell_coord, divergence_data);
+    imageStore(divergence_Texture_out, cell_coord, divergence_data);
 
-    vec4 cell_data = imageLoad(cellData_Texture, cell_coord);
-    cell_data.x = 0.0;
-    imageStore(cellData_Texture, cell_coord, cell_data);
+    imageStore(pressure_Texture, cell_coord, vec4(0.0, 0.0, 0.0, 0.0));
 }

@@ -3,12 +3,12 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(bindless_image, rgba32f) uniform image2D cellData_Texture;
-layout(bindless_image, r16f)    uniform image2D flowY_Texture_in;
+layout(bindless_image, r32f) uniform image2D pressure_Texture;
+layout(bindless_image, r16f) uniform image2D flowY_Texture_in;
 
-layout(bindless_image, r16f)    uniform image2D flowY_Texture_out;
+layout(bindless_image, r16f) uniform image2D flowY_Texture_out;
 
-uniform uvec2 cell_count;
+uniform ivec2 cell_count;
 uniform float cell_side_length;
 
 uniform float dt;
@@ -25,8 +25,8 @@ void main() {
     ivec2 edge_coord = ivec2(id);
     if (dt <= 0) return;
 
-    ivec2 imgSize = imageSize(flowY_Texture_in);
-    if (edge_coord.x < 0 || edge_coord.y < 0 || edge_coord.x >= imgSize.x || edge_coord.y >= imgSize.y)
+    ivec2 vector_count = cell_count + ivec2(0, 1);
+    if (edge_coord.x < 0 || edge_coord.y < 0 || edge_coord.x >= vector_count.x || edge_coord.y >= vector_count.y)
         return;
 
     bool has_down = cellExists(ivec2(edge_coord.x, edge_coord.y - 1));
@@ -37,9 +37,10 @@ void main() {
         return;
     }
 
-    float pressure_down = has_down ? imageLoad(cellData_Texture, ivec2(edge_coord.x, edge_coord.y - 1)).x : 0.0;
-    float pressure_up   = has_up   ? imageLoad(cellData_Texture, ivec2(edge_coord.x, edge_coord.y    )).x : 0.0;
+    float pressure_down = has_down ? imageLoad(pressure_Texture, edge_coord + ivec2(0, -1)).x : 0.0;
+    float pressure_up   = has_up   ? imageLoad(pressure_Texture, edge_coord               ).x : 0.0;
     
+    // K?
     float pressure_diff = pressure_down - pressure_up;
 
     float force = pressure_diff * cell_side_length;

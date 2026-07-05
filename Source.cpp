@@ -26,8 +26,6 @@ int main() {
 	// window setup
 	glfwInit();
 	Window window;
-	//window.setVsync(false);
-	//window.setResizable(false);
 	window.setSize(0, 0, 800, 800);
 	window.setName("Air - flower");
 
@@ -64,7 +62,9 @@ int main() {
 	float time_step = 0.0f;
 	float simulation_speed = 0.0;
 	float delta_time = 0.0f;
+	bool paused = true;
 
+	bool vsync = true;
 	float SOR = 1.0f;
 	int rbGS_iteration_count = 60;
 
@@ -82,13 +82,24 @@ int main() {
 		window.setViewportSize(0.95, 0.95, 0, 0);
 		window.setViewport();
 
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
 		delta_time = time_step * simulation_speed;
 
-		if (delta_time != 0) {
+		if (!paused && delta_time != 0) {
 			fluid_grid.compute_divergence(delta_time, density);
 			fluid_grid.compute_pressure(rbGS_iteration_count, SOR);
 			fluid_grid.compute_velocities(delta_time, density);
 			fluid_grid.compute_velocity_advection(delta_time);
+			float speed = 0.5f;
+			fluid_grid.velocity_X_tex()->write(
+				0, 1, fluid_grid.getGridSize().y / 2,
+				1, 1,
+				GL_RED,
+				GL_FLOAT,
+				&speed);
 		}
 
 		fluid_grid.render_cells(cell_render_mode, color_intensity);
@@ -106,21 +117,6 @@ int main() {
 		if (render_flow_arrows) {
 
 		}
-
-		std::vector<glm::vec4> pixels(fluid_grid.cellData.getWidth() * fluid_grid.cellData.getHeight());
-		
-		glGetTextureImage(
-			fluid_grid.cellData.getID(),
-			0,
-			GL_RGBA,
-			GL_FLOAT,
-			pixels.size() * sizeof(glm::vec4),
-			pixels.data()
-		);
-
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
 
 		const float ui_width = 100.0f;
 		ImGui::SetNextWindowSizeConstraints(ImVec2(210, FLT_MIN), ImVec2(FLT_MAX, FLT_MAX));
@@ -157,8 +153,6 @@ int main() {
 				ImGui::SetNextItemWidth(ui_width);
 				ImGui::SliderFloat("intensity", &color_intensity, 0.1f, 32.0f, "%.3f");
 
-				//fluid_grid.render_cells();
-
 				ImGui::TreePop();
 			}
 			ImGui::TreePop();
@@ -176,7 +170,12 @@ int main() {
 			ImGui::SetNextItemWidth(ui_width);
 			ImGui::SliderFloat("sim speed", &simulation_speed, 0, 3.0f, "%.4f");
 
+			ImGui::Checkbox(" pause", &paused);
+
 			ImGui::SeparatorText("simulation");
+
+			if (ImGui::Checkbox(" Vsync", &vsync))
+				window.setVsync(vsync);
 
 			ImGui::SetNextItemWidth(ui_width);
 			ImGui::SliderFloat("sor weight", &SOR, 1.0f, 2.0f, "%.3f");
@@ -248,6 +247,56 @@ int main() {
 			ImGui::TreePop();
 		}
 
+		if (ImGui::TreeNode("debug")) {
+			ImGui::SetNextItemWidth(ui_width);
+			if (ImGui::Button("run divergence")) {
+				fluid_grid.compute_divergence(delta_time, density);
+			}
+
+			ImGui::SetNextItemWidth(ui_width);
+			if (ImGui::Button("run pressure")) {
+				fluid_grid.compute_pressure(rbGS_iteration_count, SOR);
+			}
+
+			ImGui::SetNextItemWidth(ui_width);
+			if (ImGui::Button("run velocities")) {
+				fluid_grid.compute_velocities(delta_time, density);
+			}
+
+			ImGui::SetNextItemWidth(ui_width);
+			if (ImGui::Button("run vel advection")) {
+				fluid_grid.compute_velocity_advection(delta_time);
+			}
+
+			ImGui::SetNextItemWidth(ui_width);
+			if (ImGui::Button("run one frame")) {
+				fluid_grid.compute_divergence(delta_time, density);
+				fluid_grid.compute_pressure(rbGS_iteration_count, SOR);
+				fluid_grid.compute_velocities(delta_time, density);
+				fluid_grid.compute_velocity_advection(delta_time);
+			}
+
+			ImGui::SetNextItemWidth(ui_width);
+			if (ImGui::Button("create divergence")) {
+				float speed = 0.5f;
+				fluid_grid.velocity_X_tex()->write(
+					0, 1, fluid_grid.getGridSize().y / 2,
+					1, 1,
+					GL_RED,
+					GL_FLOAT,
+					&speed);
+			}
+			ImGui::SetNextItemWidth(ui_width);
+			if (ImGui::Button("auto set")) {
+				time_step = 0.0166f;
+				simulation_speed = 1.0f;
+				paused = true;
+				cell_render_mode = 1;
+				render_grid_arrows = true;
+				color_intensity = 30.0f;
+			}
+			ImGui::TreePop();
+		}
 
 		//static bool run = false;
 		//if (ImGui::Button("run")) {
@@ -269,21 +318,6 @@ int main() {
 		//if (ImGui::Button("reset")) {
 		//	ImGui::Text("not yet implemented");
 		//}
-		if (ImGui::Button("experiment")) {
-			float speed = 0.5f;
-			fluid_grid.flowX[0].write(
-				0, 1, fluid_grid.getGridSize().y / 2,
-				1, 1,
-				GL_RED,
-				GL_FLOAT,
-				&speed);
-			fluid_grid.flowX[1].write(
-				0, 1, fluid_grid.getGridSize().y / 2,
-				1, 1,
-				GL_RED,
-				GL_FLOAT,
-				&speed);
-		}
 		ImGui::End();
 
 		ImGui::Render();

@@ -5,6 +5,7 @@ vec2 verts[] = vec2[](
     vec2(0  , -0.2), 
     vec2(0.5, -0.2),
     vec2(0.5,  0.2),
+
     vec2(0.5,  0.2),
     vec2(0  , -0.2),
     vec2(0  ,  0.2),
@@ -14,9 +15,9 @@ vec2 verts[] = vec2[](
     vec2(0.5, -1)
 );
 
-layout(bindless_image, r16f) uniform image2D flowX_texture;
+layout(bindless_image, r16f) uniform image2D flowX_Texture;
 
-uniform uvec2 cell_count;
+uniform ivec2 cell_count;
 uniform vec2 vector_scale;
 
 void main() {
@@ -29,7 +30,7 @@ void main() {
         vector_id % vector_count.x,
         vector_id / vector_count.x));
 
-    float vector_value = imageLoad(flowX_texture, vector_coord).x;
+    float vector_value = imageLoad(flowX_Texture, vector_coord).x;
 
     vec2 cell_size = 2.0 / vec2(cell_count);
 

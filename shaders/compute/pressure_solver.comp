@@ -3,11 +3,11 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(bindless_image, rg32f)   coherent uniform image2D divergenceData_Texture_in;
+layout(bindless_image, rg32f) coherent uniform image2D divergence_Texture_in;
 
-layout(bindless_image, rgba32f) coherent uniform image2D cellData_Texture;
+layout(bindless_image, r32f)  coherent uniform image2D pressure_Texture;
 
-uniform uvec2 cell_count;
+uniform ivec2 cell_count;
 
 uniform bool red;
 
@@ -51,23 +51,18 @@ void main() {
 
     if (active_cell_count == 0) return;
 
-    float pressure_top    = cell_flag_top    ? imageLoad(cellData_Texture, cell_coord + ivec2(0,  1)).x : 0.0;
-    float pressure_right  = cell_flag_right  ? imageLoad(cellData_Texture, cell_coord + ivec2(1,  0)).x : 0.0;
-    float pressure_bottom = cell_flag_bottom ? imageLoad(cellData_Texture, cell_coord + ivec2(0, -1)).x : 0.0;
-    float pressure_left   = cell_flag_left   ? imageLoad(cellData_Texture, cell_coord + ivec2(-1, 0)).x : 0.0;
+    float pressure_top    = cell_flag_top    ? imageLoad(pressure_Texture, cell_coord + ivec2(0,  1)).x : 0.0;
+    float pressure_right  = cell_flag_right  ? imageLoad(pressure_Texture, cell_coord + ivec2(1,  0)).x : 0.0;
+    float pressure_bottom = cell_flag_bottom ? imageLoad(pressure_Texture, cell_coord + ivec2(0, -1)).x : 0.0;
+    float pressure_left   = cell_flag_left   ? imageLoad(pressure_Texture, cell_coord + ivec2(-1, 0)).x : 0.0;
 
-    vec4 cell_data = imageLoad(cellData_Texture, cell_coord);
-    vec4 divergence_data = imageLoad(divergenceData_Texture_in, cell_coord);
-
-    float old_pressure = cell_data.x;
-    float velocity_term = divergence_data.g;
+    float old_pressure =  imageLoad(pressure_Texture, cell_coord).r;
+    float velocity_term = imageLoad(divergence_Texture_in, cell_coord).g;
 
     float neighbor_avg = (pressure_left + pressure_right + pressure_bottom + pressure_top) / active_cell_count;
     
     float new_pressure = neighbor_avg - velocity_term;
     float relaxated_pressure = old_pressure + (new_pressure - old_pressure) * SOR;
 
-    cell_data.x = relaxated_pressure;
-
-    imageStore(cellData_Texture, cell_coord, cell_data);
+    imageStore(pressure_Texture, cell_coord, vec4(relaxated_pressure, 0.0, 0.0, 0.0));
 }

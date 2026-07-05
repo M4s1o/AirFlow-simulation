@@ -3,12 +3,12 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(bindless_image, rgba32f) uniform image2D cellData_Texture;
-layout(bindless_image, r16f)    uniform image2D flowX_Texture_in;
+layout(bindless_image, r32f) uniform image2D pressure_Texture;
+layout(bindless_image, r16f) uniform image2D flowX_Texture_in;
 
-layout(bindless_image, r16f)    uniform image2D flowX_Texture_out;
+layout(bindless_image, r16f) uniform image2D flowX_Texture_out;
 
-uniform uvec2 cell_count;
+uniform ivec2 cell_count;
 uniform float cell_side_length;
 
 uniform float dt;
@@ -16,7 +16,7 @@ uniform float density;
 
 bool cellExists(ivec2 cell_coord) {
     if (cell_coord.x < 0 || cell_coord.y < 0) return false;
-    if (cell_coord.x >= int(cell_count.x) || cell_coord.y >= int(cell_count.y)) return false;
+    if (cell_coord.x >= cell_count.x || cell_coord.y >= cell_count.y) return false;
     return true;
 }
 
@@ -25,11 +25,11 @@ void main() {
     ivec2 edge_coord = ivec2(id);
     if (dt <= 0) return;
 
-    ivec2 imgSize = imageSize(flowX_Texture_in);
-    if (edge_coord.x < 0 || edge_coord.y < 0 || edge_coord.x >= imgSize.x || edge_coord.y >= imgSize.y)
+    ivec2 vector_count = cell_count + ivec2(1, 0);
+    if (edge_coord.x < 0 || edge_coord.y < 0 || edge_coord.x >= vector_count.x || edge_coord.y >= vector_count.y)
         return;
 
-    bool has_left  = cellExists(ivec2(edge_coord.x - 1, edge_coord.y));
+    bool has_left  = cellExists(edge_coord + ivec2(-1, 0));
     bool has_right = cellExists(edge_coord);
 
     if (!has_right || !has_left) {
@@ -37,9 +37,10 @@ void main() {
         return;
     }
 
-    float pressure_left  = has_left  ? imageLoad(cellData_Texture, ivec2(edge_coord.x - 1, edge_coord.y)).x : 0.0;
-    float pressure_right = has_right ? imageLoad(cellData_Texture, ivec2(edge_coord.x,     edge_coord.y)).x : 0.0;
+    float pressure_left  = has_left  ? imageLoad(pressure_Texture, edge_coord + ivec2(-1, 0)).r : 0.0;
+    float pressure_right = has_right ? imageLoad(pressure_Texture, edge_coord               ).r : 0.0;
 
+    // K?
     float pressure_diff = pressure_left - pressure_right;
 
     float force = pressure_diff * cell_side_length;
@@ -48,7 +49,7 @@ void main() {
 
     float acceleration = force / mass;
     
-    float old_velocity = imageLoad(flowX_Texture_in, edge_coord).x;
+    float old_velocity = imageLoad(flowX_Texture_in, edge_coord).r;
     float new_velocity = old_velocity + acceleration * dt;
     
     imageStore(flowX_Texture_out, edge_coord, vec4(new_velocity, 0.0, 0.0, 0.0));

@@ -8,7 +8,7 @@ layout(bindless_image, r16f) uniform image2D flowY_Texture_in;
 
 layout(bindless_image, r16f) uniform image2D flowX_Texture_out;
 
-uniform uvec2 cell_count;
+uniform ivec2 cell_count;
 uniform float cell_side_length;
 
 uniform float dt;
@@ -38,7 +38,7 @@ float sampleBiLinear(vec2 position, float top_left, float top_right, float botto
 
 float sampleFlowX(vec2 position) {
     ivec2 imgSize = imageSize(flowX_Texture_in);
-    vec2 grid_position = position / cell_side_length - vec2(0.0, 0.5);
+    vec2 grid_position = position / cell_side_length;
     ivec2 base_coord = ivec2(floor(grid_position));
     vec2 local_position = grid_position - vec2(base_coord);
     ivec2 max_base_coord = max(imgSize - ivec2(2), ivec2(0));
@@ -90,7 +90,7 @@ void main() {
         imageLoad(flowY_Texture_in, ivec2(edge_coord.x,     edge_coord.y + 1)).x +
         imageLoad(flowY_Texture_in, ivec2(edge_coord.x - 1, edge_coord.y + 1)).x) / 4
     );
-    vec2 sample_point_X = (vec2(edge_coord) + vec2(0.0, 0.5)) * cell_side_length - old_velocity * dt;
+    vec2 sample_point_X = (vec2(edge_coord)) * cell_side_length - old_velocity * dt;
     sample_point_X.x = clamp(sample_point_X.x, 0.0, cell_side_length * cell_count.x);
     sample_point_X.y = clamp(sample_point_X.y, 0.5 * cell_side_length, cell_side_length * (float(cell_count.y) - 0.5));
     
