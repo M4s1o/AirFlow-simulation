@@ -216,6 +216,11 @@ Window* getCurrentContext();
 class Texture {
 private:
 	GLuint id = 0;
+	GLenum imageAccess = GL_READ_ONLY;
+	GLint imageLevel = 0;
+	GLboolean imageLayered = GL_FALSE;
+	GLint imageLayer = 0;
+	GLenum imageFormat = GL_RGBA8;
 	GLuint64 textureHandle = 0;
 	GLuint64 imageHandle = 0;
 	int width = 0;
@@ -234,10 +239,12 @@ public:
 	void unloadTexture();
 	void loadImage(GLenum acces, GLint level, GLboolean layered, GLint layer, GLenum format);
 	void unloadImage();
+	void bindTexture(GLuint unit) const;
+	void bindImage(GLuint unit) const;
 
-	GLuint getID();
+	GLuint getID() const;
 	GLuint64 getTextureHandle();
 	GLuint64 getImageHandle();
-	int getWidth();
-	int getHeight();
+	int getWidth() const;
+	int getHeight() const;
 };

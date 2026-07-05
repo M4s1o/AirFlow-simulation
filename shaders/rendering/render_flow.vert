@@ -1,5 +1,4 @@
 #version 460 core
-#extension GL_ARB_bindless_texture : require
 
 vec2 verts[6] = vec2[](
     vec2(-1, -1), 
@@ -10,8 +9,8 @@ vec2 verts[6] = vec2[](
     vec2(-1,  1)
 );
 
-layout(bindless_image, r16f) uniform image2D flowX_texture;
-layout(bindless_image, r16f) uniform image2D flowY_texture;
+layout(binding = 0) uniform sampler2D flowX_texture;
+layout(binding = 1) uniform sampler2D flowY_texture;
 
 uniform uvec2 cell_count;
 uniform float vector_scale;
@@ -33,8 +32,8 @@ void main() {
         vector_id / vector_count.y));
 
     float vector_value = (is_horizontal) ?
-        imageLoad(flowX_texture, vector_coord).x :
-        imageLoad(flowY_texture, vector_coord).y;
+        texelFetch(flowX_texture, vector_coord, 0).x :
+        texelFetch(flowY_texture, vector_coord, 0).x;
 
     vec2 vertex_position = verts[vertex_id % 6];
     vec2 vector_position = (2 / vec2(vector_count)) * 2.0 - 1.0;

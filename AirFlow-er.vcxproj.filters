@@ -105,4 +105,9 @@
       <Filter>Resource Files\compute</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\graphics_API.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>

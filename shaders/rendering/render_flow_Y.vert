@@ -1,5 +1,4 @@
 #version 460 core
-#extension GL_ARB_bindless_texture : require
 
 vec2 verts[] = vec2[](
     vec2(-0.2, 0  ), 
@@ -15,7 +14,7 @@ vec2 verts[] = vec2[](
     vec2(-1, 0.5)
 );
 
-layout(bindless_image, r16f) uniform image2D flowY_Texture;
+layout(binding = 0) uniform sampler2D flowY_Texture;
 
 uniform ivec2 cell_count;
 uniform vec2 vector_scale;
@@ -30,7 +29,7 @@ void main() {
         vector_id % vector_count.x,
         vector_id / vector_count.x));
 
-    float vector_value = imageLoad(flowY_Texture, vector_coord).r;
+    float vector_value = texelFetch(flowY_Texture, vector_coord, 0).r;
 
     vec2 cell_size = 2.0 / vec2(cell_count);
 

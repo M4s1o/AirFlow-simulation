@@ -1,5 +1,4 @@
 #version 460 core
-#extension GL_ARB_bindless_texture : require
 
 vec2 verts[6] = vec2[](
     vec2(-1, -1),

@@ -45,6 +45,21 @@ private:
 		Texture(GL_TEXTURE_2D, 1, GL_R16F, cell_count.x, cell_count.y + 1)
 	};
 
+	enum TextureUnit : GLuint {
+		TEXTURE_UNIT_0 = 0,
+		TEXTURE_UNIT_1 = 1,
+		TEXTURE_UNIT_2 = 2,
+		TEXTURE_UNIT_3 = 3
+	};
+
+	enum ImageUnit : GLuint {
+		IMAGE_UNIT_0 = 0,
+		IMAGE_UNIT_1 = 1,
+		IMAGE_UNIT_2 = 2,
+		IMAGE_UNIT_3 = 3,
+		IMAGE_UNIT_4 = 4
+	};
+
 	bool current_velocity_data = false;
 	bool current_divergence_data = false;
 
@@ -110,10 +125,10 @@ public:
 	void render_cells(int render_mode, float render_intensity) {
 		cellRenderProg.useProgram();
 
-		glUniformHandleui64ARB(glGetUniformLocation(cellRenderProg.getID(), "divergence_Texture"), divergence_texture[current_divergence_data].getTextureHandle());
-		glUniformHandleui64ARB(glGetUniformLocation(cellRenderProg.getID(), "pressure_Texture"), pressure_texture.getTextureHandle());
-		glUniformHandleui64ARB(glGetUniformLocation(cellRenderProg.getID(), "flowX_Texture"), velocities_X_texture[current_velocity_data].getTextureHandle());
-		glUniformHandleui64ARB(glGetUniformLocation(cellRenderProg.getID(), "flowY_Texture"), velocities_Y_texture[current_velocity_data].getTextureHandle());
+		divergence_texture[current_divergence_data].bindTexture(TEXTURE_UNIT_0);
+		pressure_texture.bindTexture(TEXTURE_UNIT_1);
+		velocities_X_texture[current_velocity_data].bindTexture(TEXTURE_UNIT_2);
+		velocities_Y_texture[current_velocity_data].bindTexture(TEXTURE_UNIT_3);
 
 		glUniform1i(glGetUniformLocation(cellRenderProg.getID(), "render_mode"), render_mode);
 		glUniform1f(glGetUniformLocation(cellRenderProg.getID(), "render_intensivity"), render_intensity);
@@ -123,7 +138,7 @@ public:
 	void render_main_velocities(float arrow_scale, float arrow_value, glm::vec4 color) {
 		velocityXrenderProg.useProgram();
 
-		glUniformHandleui64ARB(glGetUniformLocation(velocityXrenderProg.getID(), "flowX_Texture"), velocities_X_texture[current_velocity_data].getImageHandle());
+		velocities_X_texture[current_velocity_data].bindTexture(TEXTURE_UNIT_0);
 		glUniform4f(glGetUniformLocation(velocityXrenderProg.getID(), "vector_color"), color.r, color.g, color.b, color.a);
 		glUniform2i(glGetUniformLocation(velocityXrenderProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 		glUniform2f(glGetUniformLocation(velocityXrenderProg.getID(), "vector_scale"), arrow_scale, arrow_value);
@@ -132,7 +147,7 @@ public:
 
 		velocityYrenderProg.useProgram();
 
-		glUniformHandleui64ARB(glGetUniformLocation(velocityYrenderProg.getID(), "flowY_Texture"), velocities_Y_texture[current_velocity_data].getImageHandle());
+		velocities_Y_texture[current_velocity_data].bindTexture(TEXTURE_UNIT_0);
 		glUniform4f(glGetUniformLocation(velocityYrenderProg.getID(), "vector_color"), color.r, color.g, color.b, color.a);
 		glUniform2i(glGetUniformLocation(velocityYrenderProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 		glUniform2f(glGetUniformLocation(velocityYrenderProg.getID(), "vector_scale"), arrow_scale, arrow_value);
@@ -143,13 +158,11 @@ public:
 	void compute_divergence(float dt, float density) {
 		divergenceComputeProg.useProgram();
 
-		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "divergence_Texture_in"), divergence_texture[current_divergence_data].getImageHandle());
-		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "flowX_Texture_in"), velocities_X_texture[current_velocity_data].getImageHandle());
-		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "flowY_Texture_in"), velocities_Y_texture[current_velocity_data].getImageHandle());
-
-		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "pressure_Texture"), pressure_texture.getImageHandle());
-
-		glUniformHandleui64ARB(glGetUniformLocation(divergenceComputeProg.getID(), "divergence_Texture_out"), divergence_texture[!current_divergence_data].getImageHandle());
+		divergence_texture[current_divergence_data].bindImage(IMAGE_UNIT_0);
+		velocities_X_texture[current_velocity_data].bindImage(IMAGE_UNIT_1);
+		velocities_Y_texture[current_velocity_data].bindImage(IMAGE_UNIT_2);
+		pressure_texture.bindImage(IMAGE_UNIT_3);
+		divergence_texture[!current_divergence_data].bindImage(IMAGE_UNIT_4);
 
 		glUniform2i(glGetUniformLocation(divergenceComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 		glUniform1f(glGetUniformLocation(divergenceComputeProg.getID(), "K"), dt / (density * (1.0f / (float)cell_count.x)));
@@ -160,12 +173,10 @@ public:
 	}
 	void compute_pressure(unsigned int iterations, float SOR) {
 		pressureComputeProg.useProgram();
+		divergence_texture[current_divergence_data].bindImage(IMAGE_UNIT_0);
+		pressure_texture.bindImage(IMAGE_UNIT_1);
 		for (unsigned int i = 0; i < iterations; i++) {
 			// red
-			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "divergence_Texture_in"), divergence_texture[current_divergence_data].getImageHandle());
-
-			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "pressure_Texture"), pressure_texture.getImageHandle());
-
 			glUniform2i(glGetUniformLocation(pressureComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 			glUniform1i(glGetUniformLocation(pressureComputeProg.getID(), "red"), true);
 			glUniform1f(glGetUniformLocation(pressureComputeProg.getID(), "SOR"), SOR);
@@ -173,10 +184,6 @@ public:
 			pressureComputeProg.runCompute(cell_count.x / 2, cell_count.y, 1, GL_ALL_BARRIER_BITS);
 
 			// black
-			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "divergence_Texture_in"), divergence_texture[current_divergence_data].getImageHandle());
-
-			glUniformHandleui64ARB(glGetUniformLocation(pressureComputeProg.getID(), "pressure_Texture"), pressure_texture.getImageHandle());
-
 			glUniform2i(glGetUniformLocation(pressureComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 			glUniform1i(glGetUniformLocation(pressureComputeProg.getID(), "red"), false);
 			glUniform1f(glGetUniformLocation(pressureComputeProg.getID(), "SOR"), SOR);
@@ -188,10 +195,9 @@ public:
 		// velocity X compute
 		velocityXComputeProg.useProgram();
 
-		glUniformHandleui64ARB(glGetUniformLocation(velocityXComputeProg.getID(), "pressure_Texture"), pressure_texture.getImageHandle());
-		glUniformHandleui64ARB(glGetUniformLocation(velocityXComputeProg.getID(), "flowX_Texture_in"), velocities_X_texture[current_velocity_data].getImageHandle());
-
-		glUniformHandleui64ARB(glGetUniformLocation(velocityXComputeProg.getID(), "flowX_Texture_out"), velocities_X_texture[!current_velocity_data].getImageHandle());
+		pressure_texture.bindImage(IMAGE_UNIT_0);
+		velocities_X_texture[current_velocity_data].bindImage(IMAGE_UNIT_1);
+		velocities_X_texture[!current_velocity_data].bindImage(IMAGE_UNIT_2);
 
 		glUniform2i(glGetUniformLocation(velocityXComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 		glUniform1f(glGetUniformLocation(velocityXComputeProg.getID(), "cell_side_length"), 1.0f / (float)cell_count.x);
@@ -203,10 +209,9 @@ public:
 		// velocity Y compute
 		velocityYComputeProg.useProgram();
 
-		glUniformHandleui64ARB(glGetUniformLocation(velocityYComputeProg.getID(), "pressure_Texture"), pressure_texture.getImageHandle());
-		glUniformHandleui64ARB(glGetUniformLocation(velocityYComputeProg.getID(), "flowY_Texture_in"), velocities_Y_texture[current_velocity_data].getImageHandle());
-
-		glUniformHandleui64ARB(glGetUniformLocation(velocityYComputeProg.getID(), "flowY_Texture_out"), velocities_Y_texture[!current_velocity_data].getImageHandle());
+		pressure_texture.bindImage(IMAGE_UNIT_0);
+		velocities_Y_texture[current_velocity_data].bindImage(IMAGE_UNIT_1);
+		velocities_Y_texture[!current_velocity_data].bindImage(IMAGE_UNIT_2);
 
 		glUniform2i(glGetUniformLocation(velocityYComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 		glUniform1f(glGetUniformLocation(velocityYComputeProg.getID(), "cell_side_length"), 1.0f / (float)cell_count.x);
@@ -221,10 +226,9 @@ public:
 		// velocity X compute
 		velocityXAdvectionComputeProg.useProgram();
 
-		glUniformHandleui64ARB(glGetUniformLocation(velocityXAdvectionComputeProg.getID(), "flowX_Texture_in"), velocities_X_texture[current_velocity_data].getImageHandle());
-		glUniformHandleui64ARB(glGetUniformLocation(velocityXAdvectionComputeProg.getID(), "flowY_Texture_in"), velocities_Y_texture[current_velocity_data].getImageHandle());
-
-		glUniformHandleui64ARB(glGetUniformLocation(velocityXAdvectionComputeProg.getID(), "flowX_Texture_out"), velocities_X_texture[!current_velocity_data].getImageHandle());
+		velocities_X_texture[current_velocity_data].bindImage(IMAGE_UNIT_0);
+		velocities_Y_texture[current_velocity_data].bindImage(IMAGE_UNIT_1);
+		velocities_X_texture[!current_velocity_data].bindImage(IMAGE_UNIT_2);
 
 		glUniform2i(glGetUniformLocation(velocityXAdvectionComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 		glUniform1f(glGetUniformLocation(velocityXAdvectionComputeProg.getID(), "cell_side_length"), 1.0f / (float)cell_count.x);
@@ -235,10 +239,9 @@ public:
 		// velocity Y compute
 		velocityYAdvectionComputeProg.useProgram();
 
-		glUniformHandleui64ARB(glGetUniformLocation(velocityYAdvectionComputeProg.getID(), "flowX_Texture_in"), velocities_X_texture[current_velocity_data].getImageHandle());
-		glUniformHandleui64ARB(glGetUniformLocation(velocityYAdvectionComputeProg.getID(), "flowY_Texture_in"), velocities_Y_texture[current_velocity_data].getImageHandle());
-
-		glUniformHandleui64ARB(glGetUniformLocation(velocityYAdvectionComputeProg.getID(), "flowY_Texture_out"), velocities_Y_texture[!current_velocity_data].getImageHandle());
+		velocities_X_texture[current_velocity_data].bindImage(IMAGE_UNIT_0);
+		velocities_Y_texture[current_velocity_data].bindImage(IMAGE_UNIT_1);
+		velocities_Y_texture[!current_velocity_data].bindImage(IMAGE_UNIT_2);
 
 		glUniform2i(glGetUniformLocation(velocityYAdvectionComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 		glUniform1f(glGetUniformLocation(velocityYAdvectionComputeProg.getID(), "cell_side_length"), 1.0f / (float)cell_count.x);

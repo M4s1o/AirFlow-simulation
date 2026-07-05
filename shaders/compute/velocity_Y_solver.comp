@@ -1,12 +1,11 @@
 #version 460 core
-#extension GL_ARB_bindless_texture : require
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(bindless_image, r32f) uniform image2D pressure_Texture;
-layout(bindless_image, r16f) uniform image2D flowY_Texture_in;
+layout(r32f, binding = 0) uniform image2D pressure_Texture;
+layout(r16f, binding = 1) uniform image2D flowY_Texture_in;
 
-layout(bindless_image, r16f) uniform image2D flowY_Texture_out;
+layout(r16f, binding = 2) uniform image2D flowY_Texture_out;
 
 uniform ivec2 cell_count;
 uniform float cell_side_length;

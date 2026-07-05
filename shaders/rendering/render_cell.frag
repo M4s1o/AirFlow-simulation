@@ -1,10 +1,9 @@
 #version 450 core
-#extension GL_ARB_bindless_texture : require
 
-layout(bindless_sampler) uniform sampler2D divergence_Texture;
-layout(bindless_sampler) uniform sampler2D pressure_Texture;
-layout(bindless_sampler) uniform sampler2D flowX_Texture;
-layout(bindless_sampler) uniform sampler2D flowY_Texture;
+layout(binding = 0) uniform sampler2D divergence_Texture;
+layout(binding = 1) uniform sampler2D pressure_Texture;
+layout(binding = 2) uniform sampler2D flowX_Texture;
+layout(binding = 3) uniform sampler2D flowY_Texture;
 
 uniform int render_mode;
 uniform float render_intensivity;

@@ -179,6 +179,9 @@
     <None Include="shaders\rendering\render_flow_X.vert" />
     <None Include="shaders\rendering\render_flow_Y.vert" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\graphics_API.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

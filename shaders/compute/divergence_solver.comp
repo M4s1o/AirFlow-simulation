@@ -1,15 +1,14 @@
 #version 460 core
-#extension GL_ARB_bindless_texture : require
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(bindless_image, rg32f) coherent uniform image2D divergence_Texture_in;
-layout(bindless_image, r16f)  coherent uniform image2D flowX_Texture_in;
-layout(bindless_image, r16f)  coherent uniform image2D flowY_Texture_in;
+layout(rg32f, binding = 0) coherent uniform image2D divergence_Texture_in;
+layout(r16f, binding = 1)  coherent uniform image2D flowX_Texture_in;
+layout(r16f, binding = 2)  coherent uniform image2D flowY_Texture_in;
 
-layout(bindless_image, r32f)  coherent uniform image2D pressure_Texture;
+layout(r32f, binding = 3)  coherent uniform image2D pressure_Texture;
 
-layout(bindless_image, rg32f) coherent uniform image2D divergence_Texture_out;
+layout(rg32f, binding = 4) coherent uniform image2D divergence_Texture_out;
 
 uniform ivec2 cell_count;
 

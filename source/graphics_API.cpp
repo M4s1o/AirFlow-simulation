@@ -670,20 +670,38 @@ void Texture::setWrap(GLenum s, GLenum t) {
 	glTextureParameteri(id, GL_TEXTURE_WRAP_T, t);
 }
 void Texture::loadTexture() {
+	errorMark;
 	textureHandle = glGetTextureHandleARB(id);
 	glMakeTextureHandleResidentARB(textureHandle);
 }
 void Texture::unloadTexture() {
+	errorMark;
 	glMakeTextureHandleNonResidentARB(textureHandle);
 }
 void Texture::loadImage(GLenum acces, GLint level, GLboolean layered, GLint layer, GLenum format) {
+	errorMark;
+	imageAccess = acces;
+	imageLevel = level;
+	imageLayered = layered;
+	imageLayer = layer;
+	imageFormat = format;
+
 	imageHandle = glGetImageHandleARB(id, level, layered, layer, format);
 	glMakeImageHandleResidentARB(imageHandle, acces);
 }
 void Texture::unloadImage() {
+	errorMark;
 	glMakeImageHandleNonResidentARB(imageHandle);
 }
-GLuint Texture::getID() {
+void Texture::bindTexture(GLuint unit) const {
+	errorMark;
+	glBindTextureUnit(unit, id);
+}
+void Texture::bindImage(GLuint unit) const {
+	errorMark;
+	glBindImageTexture(unit, id, imageLevel, imageLayered, imageLayer, imageAccess, imageFormat);
+}
+GLuint Texture::getID() const {
 	return id;
 }
 GLuint64 Texture::getTextureHandle() {
@@ -692,9 +710,9 @@ GLuint64 Texture::getTextureHandle() {
 GLuint64 Texture::getImageHandle() {
 	return imageHandle;
 }
-int Texture::getWidth() {
+int Texture::getWidth() const {
 	return width;
 }
-int Texture::getHeight() {
+int Texture::getHeight() const {
 	return height;
 }
