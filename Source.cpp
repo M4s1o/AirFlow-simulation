@@ -486,6 +486,11 @@ int main() {
 			}
 
 			if (ImGui::TreeNode("debug")) {
+				ImGui::Text("fps: %f.2", 1.0f / std::chrono::duration<float>(current_time - last_frame_time).count());
+				ImGui::Text("time step: %f.2", time_step);
+				ImGui::Text("time step (real): %f.2", std::chrono::duration<float>(current_time - last_frame_time).count());
+				ImGui::Text("delta time: %f.2", delta_time);
+
 				ImGui::SetNextItemWidth(ui_width);
 				if (ImGui::Button("reset grdids")) {
 					int x = fluid_grid.obstacle_tex()->getWidth();
