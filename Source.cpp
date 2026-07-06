@@ -39,6 +39,11 @@ int main() {
 	ImGui_ImplOpenGL3_Init("#version 460");
 	ImGui::StyleColorsDark();
 
+	// time
+	const auto start_time = std::chrono::steady_clock::now();
+	auto current_time = start_time;
+	auto last_frame_time = current_time;
+
 	FluidGrid fluid_grid({ 1920 / 4, 1080 / 4 });
 
 
@@ -73,7 +78,7 @@ int main() {
 
 	const char* render_modes[] = { "divergence", "pressure", "attribute", "flow" };
 	int cell_render_mode = 0;
-	float color_intensity = 1.0f;
+	float color_maximum = 1.0f;
 
 	bool manual_dt_control = false;
 	float time_step = 0.0f;
@@ -126,6 +131,17 @@ int main() {
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
+		last_frame_time = current_time;
+		current_time = std::chrono::steady_clock::now();
+
+		if (manual_dt_control) {
+			while (std::chrono::duration<float>(current_time - last_frame_time).count() < time_step) {
+				current_time = std::chrono::steady_clock::now();
+			}
+		}
+		else
+			time_step = std::chrono::duration<float>(current_time - last_frame_time).count();
+
 		delta_time = time_step * simulation_speed;
 
 		if (!paused && delta_time != 0) {
@@ -153,7 +169,7 @@ int main() {
 			);
 		}
 
-		fluid_grid.render_cells(cell_render_mode, color_intensity);
+		fluid_grid.render_cells(cell_render_mode, 1.0f / color_maximum);
 
 		if (render_obstacles) {
 			fluid_grid.render_obstacles({
@@ -236,7 +252,7 @@ int main() {
 				paused = false;
 				cell_render_mode = 2;
 				render_grid_arrows = false;
-				color_intensity = 1.0f;
+				color_maximum = 1.0f;
 				rbGS_iteration_count = 30;
 				SOR = 1.7f;
 
@@ -354,7 +370,7 @@ int main() {
 					ImGui::Combo("render mode", &cell_render_mode, render_modes, 4);
 
 					ImGui::SetNextItemWidth(ui_width);
-					ImGui::SliderFloat("intensity", &color_intensity, 0.1f, 32.0f, "%.3f");
+					ImGui::SliderFloat("intensity", &color_maximum, 0.1f, 2.0f, "%.3f");
 
 					ImGui::Checkbox(" render obstacles", &render_obstacles);
 
@@ -571,7 +587,7 @@ int main() {
 					paused = false;
 					cell_render_mode = 2;
 					render_grid_arrows = false;
-					color_intensity = 1.0f;
+					color_maximum = 1.0f;
 					rbGS_iteration_count = 30;
 					SOR = 1.7f;
 
