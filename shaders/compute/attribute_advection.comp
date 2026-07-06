@@ -1,0 +1,96 @@
+#version 460 core
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(r16f, binding = 0)    uniform image2D flowX_Texture_in;
+layout(r16f, binding = 1)    uniform image2D flowY_Texture_in;
+layout(rgba16f, binding = 2) uniform image2D attribute_Texture_in;
+layout(r8ui, binding = 3)    coherent uniform uimage2D obstacle_Texture;
+
+layout(rgba16f, binding = 4) uniform image2D attribute_Texture_out;
+
+uniform ivec2 cell_count;
+uniform float cell_side_length;
+
+uniform float dt;
+
+bool cellExists(ivec2 cell_coord) {
+    if (cell_coord.x < 0 || cell_coord.y < 0) return false;
+    if (cell_coord.x >= cell_count.x || cell_coord.y >= cell_count.y) return false;
+    uint obstacle_type = imageLoad(obstacle_Texture, cell_coord).r;
+    if (obstacle_type == 1) return false;
+    return true;
+}
+
+vec4 sampleBiLinear(vec2 position, vec4 top_left, vec4 top_right, vec4 bottom_right, vec4 bottom_left) {
+    position = clamp(position, 0.0, 1.0);
+
+    vec4 top = 
+        position.x * top_right +
+        (1.0 - position.x) * top_left;
+    
+    vec4 bottom = 
+        position.x * bottom_right +
+        (1.0 - position.x) * bottom_left;
+
+    return 
+        position.y * top +
+        (1.0 - position.y) * bottom;
+}
+
+void main() {
+    uvec2 ucell = gl_GlobalInvocationID.xy;
+    if (!cellExists(ivec2(ucell))) return;
+    if (dt <= 0) return;
+
+    ivec2 cell_coord = ivec2(ucell);
+
+    bool cell_flag_top    = cellExists(cell_coord + ivec2(0,  1));
+    bool cell_flag_right  = cellExists(cell_coord + ivec2(1,  0));
+    bool cell_flag_bottom = cellExists(cell_coord + ivec2(0, -1));
+    bool cell_flag_left   = cellExists(cell_coord + ivec2(-1, 0));
+    
+    int active_cells_X = int(cell_flag_left) + int(cell_flag_right);
+    int active_cells_Y = int(cell_flag_top) + int(cell_flag_bottom);
+
+    if (active_cells_X + active_cells_Y == 0) return;
+    
+    float velocity_top    = cell_flag_top    ? imageLoad(flowY_Texture_in, cell_coord + ivec2(0, 1)).x : 0.0;
+    float velocity_right  = cell_flag_right  ? imageLoad(flowX_Texture_in, cell_coord + ivec2(1, 0)).x : 0.0;
+    float velocity_bottom = cell_flag_bottom ? imageLoad(flowY_Texture_in, cell_coord + ivec2(0, 0)).x : 0.0;
+    float velocity_left   = cell_flag_left   ? imageLoad(flowX_Texture_in, cell_coord + ivec2(0, 0)).x : 0.0;
+
+    vec2 velocity = vec2(0.0, 0.0);
+
+    if (active_cells_X != 0)
+        velocity.x = (velocity_left + velocity_right) / float(active_cells_X);
+    if (active_cells_Y != 0)
+        velocity.y = (velocity_top + velocity_bottom) / float(active_cells_Y);
+
+    vec2 cell_position = vec2(cell_coord) * cell_side_length;
+    vec2 sample_point = cell_position - velocity * dt;
+
+    sample_point.x = clamp(sample_point.x, 0.0, float(cell_count.x) * cell_side_length);
+    sample_point.y = clamp(sample_point.y, 0.0, float(cell_count.y) * cell_side_length);
+
+    ivec2 bottom_left_sample_coord = ivec2(floor(sample_point / cell_side_length));
+    vec2 bottom_left_sample_position = vec2(bottom_left_sample_coord) * cell_side_length;
+
+    vec2 local_sample_position = (sample_point - bottom_left_sample_position) / cell_side_length;
+
+    if (sample_point.x >= float(cell_count.x) * cell_side_length) {
+        bottom_left_sample_coord += ivec2(-1, 0);
+        local_sample_position.x = 1.0;
+    }
+    if (sample_point.y >= float(cell_count.y) * cell_side_length) {
+        bottom_left_sample_coord += ivec2(0, -1);
+        local_sample_position.y = 1.0;
+    }
+    
+    imageStore(attribute_Texture_out, cell_coord, sampleBiLinear(local_sample_position,
+        imageLoad(attribute_Texture_in, bottom_left_sample_coord + ivec2(0, 1)),
+        imageLoad(attribute_Texture_in, bottom_left_sample_coord + ivec2(1, 1)),
+        imageLoad(attribute_Texture_in, bottom_left_sample_coord + ivec2(1, 0)),
+        imageLoad(attribute_Texture_in, bottom_left_sample_coord + ivec2(0, 0))
+    ));
+}

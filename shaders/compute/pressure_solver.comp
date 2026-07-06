@@ -3,8 +3,9 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(rg32f, binding = 0) coherent uniform image2D divergence_Texture_in;
+layout(r8ui, binding = 1)  coherent uniform uimage2D obstacle_Texture;
 
-layout(r32f, binding = 1)  coherent uniform image2D pressure_Texture;
+layout(r32f, binding = 2)  coherent uniform image2D pressure_Texture;
 
 uniform ivec2 cell_count;
 
@@ -27,7 +28,9 @@ ivec2 getRBcoord(ivec2 id) {
 
 bool cellExists(ivec2 cell_coord) {
     if (cell_coord.x < 0 || cell_coord.y < 0) return false;
-    if (cell_coord.x >= int(cell_count.x) || cell_coord.y >= int(cell_count.y)) return false;
+    if (cell_coord.x >= cell_count.x || cell_coord.y >= cell_count.y) return false;
+    uint obstacle_type = imageLoad(obstacle_Texture, cell_coord).r;
+    if (obstacle_type == 1) return false;
     return true;
 }
 

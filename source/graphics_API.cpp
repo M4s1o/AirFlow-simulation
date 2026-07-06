@@ -9,6 +9,7 @@ Author: Branislav Wilhelm
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include <cstring>
 #include <array>
 #include <fstream>
 #include <iostream>
@@ -671,12 +672,12 @@ void Texture::setWrap(GLenum s, GLenum t) {
 }
 void Texture::loadTexture() {
 	errorMark;
-	textureHandle = glGetTextureHandleARB(id);
-	glMakeTextureHandleResidentARB(textureHandle);
+	//textureHandle = glGetTextureHandleARB(id);
+	//glMakeTextureHandleResidentARB(textureHandle);
 }
 void Texture::unloadTexture() {
 	errorMark;
-	glMakeTextureHandleNonResidentARB(textureHandle);
+	//glMakeTextureHandleNonResidentARB(textureHandle);
 }
 void Texture::loadImage(GLenum acces, GLint level, GLboolean layered, GLint layer, GLenum format) {
 	errorMark;
@@ -686,12 +687,12 @@ void Texture::loadImage(GLenum acces, GLint level, GLboolean layered, GLint laye
 	imageLayer = layer;
 	imageFormat = format;
 
-	imageHandle = glGetImageHandleARB(id, level, layered, layer, format);
-	glMakeImageHandleResidentARB(imageHandle, acces);
+	//imageHandle = glGetImageHandleARB(id, level, layered, layer, format);
+	//glMakeImageHandleResidentARB(imageHandle, acces);
 }
 void Texture::unloadImage() {
 	errorMark;
-	glMakeImageHandleNonResidentARB(imageHandle);
+	//glMakeImageHandleNonResidentARB(imageHandle);
 }
 void Texture::bindTexture(GLuint unit) const {
 	errorMark;

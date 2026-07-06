@@ -7,8 +7,9 @@ layout(r16f, binding = 1)  coherent uniform image2D flowX_Texture_in;
 layout(r16f, binding = 2)  coherent uniform image2D flowY_Texture_in;
 
 layout(r32f, binding = 3)  coherent uniform image2D pressure_Texture;
+layout(r8ui, binding = 4)  coherent uniform uimage2D obstacle_Texture;
 
-layout(rg32f, binding = 4) coherent uniform image2D divergence_Texture_out;
+layout(rg32f, binding = 5) coherent uniform image2D divergence_Texture_out;
 
 uniform ivec2 cell_count;
 
@@ -17,6 +18,8 @@ uniform float K; // dt / (density * cell_side_lenght)
 bool cellExists(ivec2 cell_coord) {
     if (cell_coord.x < 0 || cell_coord.y < 0) return false;
     if (cell_coord.x >= cell_count.x || cell_coord.y >= cell_count.y) return false;
+    uint obstacle_type = imageLoad(obstacle_Texture, cell_coord).r;
+    if (obstacle_type == 1) return false;
     return true;
 }
 
@@ -40,10 +43,10 @@ void main() {
 
     if (active_cell_count == 0) return;
     
-    float velocity_top    = cell_flag_top    ? imageLoad(flowY_Texture_in, cell_coord + ivec2(0, 1)).x : 0.0;
-    float velocity_right  = cell_flag_right  ? imageLoad(flowX_Texture_in, cell_coord + ivec2(1, 0)).x : 0.0;
-    float velocity_bottom = cell_flag_bottom ? imageLoad(flowY_Texture_in, cell_coord + ivec2(0, 0)).x : 0.0;
-    float velocity_left   = cell_flag_left   ? imageLoad(flowX_Texture_in, cell_coord + ivec2(0, 0)).x : 0.0;
+    float velocity_top    = cell_flag_top    ? imageLoad(flowY_Texture_in, cell_coord + ivec2(0, 1)).r: 0.0;
+    float velocity_right  = cell_flag_right  ? imageLoad(flowX_Texture_in, cell_coord + ivec2(1, 0)).r : 0.0;
+    float velocity_bottom = cell_flag_bottom ? imageLoad(flowY_Texture_in, cell_coord + ivec2(0, 0)).r : 0.0;
+    float velocity_left   = cell_flag_left   ? imageLoad(flowX_Texture_in, cell_coord + ivec2(0, 0)).r : 0.0;
 
     float divergence = velocity_right - velocity_left + velocity_top - velocity_bottom;
 

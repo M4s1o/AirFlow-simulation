@@ -4,8 +4,9 @@ layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(r32f, binding = 0) uniform image2D pressure_Texture;
 layout(r16f, binding = 1) uniform image2D flowY_Texture_in;
+layout(r8ui, binding = 2) uniform uimage2D obstacle_Texture;
 
-layout(r16f, binding = 2) uniform image2D flowY_Texture_out;
+layout(r16f, binding = 3) uniform image2D flowY_Texture_out;
 
 uniform ivec2 cell_count;
 uniform float cell_side_length;
@@ -15,7 +16,9 @@ uniform float density;
 
 bool cellExists(ivec2 cell_coord) {
     if (cell_coord.x < 0 || cell_coord.y < 0) return false;
-    if (cell_coord.x >= int(cell_count.x) || cell_coord.y >= int(cell_count.y)) return false;
+    if (cell_coord.x >= cell_count.x || cell_coord.y >= cell_count.y) return false;
+    uint obstacle_type = imageLoad(obstacle_Texture, cell_coord).r;
+    if (obstacle_type == 1) return false;
     return true;
 }
 

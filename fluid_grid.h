@@ -17,6 +17,7 @@
 class FluidGrid {
 private:
 	ShaderProgram cellRenderProg;
+	ShaderProgram obstacleRenderProg;
 	ShaderProgram velocityXrenderProg;
 	ShaderProgram velocityYrenderProg;
 	ShaderProgram divergenceComputeProg;
@@ -25,6 +26,7 @@ private:
 	ShaderProgram velocityYComputeProg;
 	ShaderProgram velocityXAdvectionComputeProg;
 	ShaderProgram velocityYAdvectionComputeProg;
+	ShaderProgram attributeAdvectionComputeProg;
 	VAO vao;
 
 	glm::ivec2 cell_count = { 6, 6 };
@@ -44,12 +46,20 @@ private:
 		Texture(GL_TEXTURE_2D, 1, GL_R16F, cell_count.x, cell_count.y + 1),
 		Texture(GL_TEXTURE_2D, 1, GL_R16F, cell_count.x, cell_count.y + 1)
 	};
+	Texture attribute_texture[2] = {
+		Texture(GL_TEXTURE_2D, 1, GL_RGBA16F, cell_count.x, cell_count.y),
+		Texture(GL_TEXTURE_2D, 1, GL_RGBA16F, cell_count.x, cell_count.y)
+	};
+	Texture obstacle_texture = {
+		Texture(GL_TEXTURE_2D, 1, GL_R8UI, cell_count.x, cell_count.y)
+	};
 
 	enum TextureUnit : GLuint {
 		TEXTURE_UNIT_0 = 0,
 		TEXTURE_UNIT_1 = 1,
 		TEXTURE_UNIT_2 = 2,
-		TEXTURE_UNIT_3 = 3
+		TEXTURE_UNIT_3 = 3,
+		TEXTURE_UNIT_4 = 4
 	};
 
 	enum ImageUnit : GLuint {
@@ -57,11 +67,13 @@ private:
 		IMAGE_UNIT_1 = 1,
 		IMAGE_UNIT_2 = 2,
 		IMAGE_UNIT_3 = 3,
-		IMAGE_UNIT_4 = 4
+		IMAGE_UNIT_4 = 4,
+		IMAGE_UNIT_5 = 5
 	};
 
 	bool current_velocity_data = false;
 	bool current_divergence_data = false;
+	bool current_attribute_data = false;
 
 public:
 	FluidGrid(glm::vec2 cell_count)
@@ -71,6 +83,10 @@ public:
 		cellRenderProg.addShader(GL_VERTEX_SHADER, readFileToString(shadersDirectory + "rendering/render_cell.vert"));
 		cellRenderProg.addShader(GL_FRAGMENT_SHADER, readFileToString(shadersDirectory + "rendering/render_cell.frag"));
 		cellRenderProg.compile();
+
+		obstacleRenderProg.addShader(GL_VERTEX_SHADER, readFileToString(shadersDirectory + "rendering/render_cell.vert"));
+		obstacleRenderProg.addShader(GL_FRAGMENT_SHADER, readFileToString(shadersDirectory + "rendering/render_obstacles.frag"));
+		obstacleRenderProg.compile();
 
 		velocityXrenderProg.addShader(GL_VERTEX_SHADER, readFileToString(shadersDirectory + "rendering/render_flow_X.vert"));
 		velocityXrenderProg.addShader(GL_FRAGMENT_SHADER, readFileToString(shadersDirectory + "rendering/render_flow_X&Y.frag"));
@@ -98,28 +114,33 @@ public:
 		velocityYAdvectionComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "compute/velocity_Y_advection.comp"));
 		velocityYAdvectionComputeProg.compile();
 
+		attributeAdvectionComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "compute/attribute_advection.comp"));
+		attributeAdvectionComputeProg.compile();
+
 		for (int i = 0; i < 2; i++) {
 
 			divergence_texture[i].setFilter(GL_NEAREST, GL_NEAREST);
-			velocities_X_texture[i].setFilter(GL_NEAREST, GL_NEAREST);
-			velocities_Y_texture[i].setFilter(GL_NEAREST, GL_NEAREST);
+			velocities_X_texture[i].setFilter(GL_LINEAR, GL_LINEAR);
+			velocities_Y_texture[i].setFilter(GL_LINEAR, GL_LINEAR);
+			attribute_texture[i].setFilter(GL_NEAREST, GL_NEAREST);
 
 			divergence_texture[i].setWrap(GL_REPEAT, GL_REPEAT);
 			velocities_X_texture[i].setWrap(GL_REPEAT, GL_REPEAT);
 			velocities_Y_texture[i].setWrap(GL_REPEAT, GL_REPEAT);
+			attribute_texture[i].setWrap(GL_REPEAT, GL_REPEAT);
 
 			divergence_texture[i].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_RG32F);
 			velocities_X_texture[i].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_R16F);
 			velocities_Y_texture[i].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_R16F);
-
-			divergence_texture[i].loadTexture();
-			velocities_X_texture[i].loadTexture();
-			velocities_Y_texture[i].loadTexture();
+			attribute_texture[i].loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_RGBA16F);
 		}
 		pressure_texture.setFilter(GL_NEAREST, GL_NEAREST);
 		pressure_texture.setWrap(GL_REPEAT, GL_REPEAT);
 		pressure_texture.loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_R32F);
-		pressure_texture.loadTexture();
+
+		obstacle_texture.setFilter(GL_NEAREST, GL_NEAREST);
+		obstacle_texture.setWrap(GL_REPEAT, GL_REPEAT);
+		obstacle_texture.loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_R8UI);
 	}
 
 	void render_cells(int render_mode, float render_intensity) {
@@ -129,9 +150,19 @@ public:
 		pressure_texture.bindTexture(TEXTURE_UNIT_1);
 		velocities_X_texture[current_velocity_data].bindTexture(TEXTURE_UNIT_2);
 		velocities_Y_texture[current_velocity_data].bindTexture(TEXTURE_UNIT_3);
+		attribute_texture[current_attribute_data].bindTexture(TEXTURE_UNIT_4);
 
 		glUniform1i(glGetUniformLocation(cellRenderProg.getID(), "render_mode"), render_mode);
 		glUniform1f(glGetUniformLocation(cellRenderProg.getID(), "render_intensivity"), render_intensity);
+
+		vao.draw(GL_TRIANGLES, 6);
+	}
+	void render_obstacles(glm::vec4 color) {
+		obstacleRenderProg.useProgram();
+
+		obstacle_texture.bindTexture(TEXTURE_UNIT_0);
+
+		glUniform4f(glGetUniformLocation(obstacleRenderProg.getID(), "obstacle_color"), color.r, color.g, color.b, color.a);
 
 		vao.draw(GL_TRIANGLES, 6);
 	}
@@ -162,7 +193,8 @@ public:
 		velocities_X_texture[current_velocity_data].bindImage(IMAGE_UNIT_1);
 		velocities_Y_texture[current_velocity_data].bindImage(IMAGE_UNIT_2);
 		pressure_texture.bindImage(IMAGE_UNIT_3);
-		divergence_texture[!current_divergence_data].bindImage(IMAGE_UNIT_4);
+		obstacle_texture.bindImage(IMAGE_UNIT_4);
+		divergence_texture[!current_divergence_data].bindImage(IMAGE_UNIT_5);
 
 		glUniform2i(glGetUniformLocation(divergenceComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 		glUniform1f(glGetUniformLocation(divergenceComputeProg.getID(), "K"), dt / (density * (1.0f / (float)cell_count.x)));
@@ -173,8 +205,11 @@ public:
 	}
 	void compute_pressure(unsigned int iterations, float SOR) {
 		pressureComputeProg.useProgram();
+
 		divergence_texture[current_divergence_data].bindImage(IMAGE_UNIT_0);
-		pressure_texture.bindImage(IMAGE_UNIT_1);
+		obstacle_texture.bindImage(IMAGE_UNIT_1);
+		pressure_texture.bindImage(IMAGE_UNIT_2);
+
 		for (unsigned int i = 0; i < iterations; i++) {
 			// red
 			glUniform2i(glGetUniformLocation(pressureComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
@@ -197,7 +232,8 @@ public:
 
 		pressure_texture.bindImage(IMAGE_UNIT_0);
 		velocities_X_texture[current_velocity_data].bindImage(IMAGE_UNIT_1);
-		velocities_X_texture[!current_velocity_data].bindImage(IMAGE_UNIT_2);
+		obstacle_texture.bindImage(IMAGE_UNIT_2);
+		velocities_X_texture[!current_velocity_data].bindImage(IMAGE_UNIT_3);
 
 		glUniform2i(glGetUniformLocation(velocityXComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 		glUniform1f(glGetUniformLocation(velocityXComputeProg.getID(), "cell_side_length"), 1.0f / (float)cell_count.x);
@@ -211,7 +247,8 @@ public:
 
 		pressure_texture.bindImage(IMAGE_UNIT_0);
 		velocities_Y_texture[current_velocity_data].bindImage(IMAGE_UNIT_1);
-		velocities_Y_texture[!current_velocity_data].bindImage(IMAGE_UNIT_2);
+		obstacle_texture.bindImage(IMAGE_UNIT_2);
+		velocities_Y_texture[!current_velocity_data].bindImage(IMAGE_UNIT_3);
 
 		glUniform2i(glGetUniformLocation(velocityYComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 		glUniform1f(glGetUniformLocation(velocityYComputeProg.getID(), "cell_side_length"), 1.0f / (float)cell_count.x);
@@ -251,6 +288,24 @@ public:
 
 		current_velocity_data = !current_velocity_data;
 	}
+	void compute_attribute_advection(float dt) {
+		attributeAdvectionComputeProg.useProgram();
+
+		velocities_X_texture[current_velocity_data].bindImage(IMAGE_UNIT_0);
+		velocities_Y_texture[current_velocity_data].bindImage(IMAGE_UNIT_1);
+		attribute_texture[current_attribute_data].bindImage(IMAGE_UNIT_2);
+		obstacle_texture.bindImage(IMAGE_UNIT_3);
+
+		attribute_texture[!current_attribute_data].bindImage(IMAGE_UNIT_4);
+
+		glUniform2i(glGetUniformLocation(attributeAdvectionComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
+		glUniform1f(glGetUniformLocation(attributeAdvectionComputeProg.getID(), "cell_side_length"), 1.0f / (float)cell_count.x);
+		glUniform1f(glGetUniformLocation(attributeAdvectionComputeProg.getID(), "dt"), dt);
+
+		attributeAdvectionComputeProg.runCompute(cell_count.x, cell_count.y, 1, GL_ALL_BARRIER_BITS);
+
+		current_attribute_data = !current_attribute_data;
+	}
 
 	Texture* pressure_tex() {
 		return &pressure_texture;
@@ -263,6 +318,12 @@ public:
 	}
 	Texture* velocity_Y_tex() {
 		return &velocities_Y_texture[current_velocity_data];
+	}
+	Texture* attribute_tex() {
+		return &attribute_texture[current_attribute_data];
+	}
+	Texture* obstacle_tex() {
+		return &obstacle_texture;
 	}
 
 	glm::ivec2 getGridSize() {
