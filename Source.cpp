@@ -46,13 +46,17 @@ int main() {
 
 	FluidGrid fluid_grid({ 1920 / 4, 1080 / 4 });
 
+	// ==========================================
+	// VARIABLE DEFINITIONS
+	// ==========================================
 
 	const char* paint_shapes[] = { "rectangle", "sphere" };
-	static int paint_shape = 0;
+	const int paint_shapes_count = 2;
+	int paint_shape = 0;
 
-	static bool equal_sides = false;
-	static float rectangle_dimensions[2] = { 0.1f, 0.1f };
-	static float sphere_radius = 0.1f;
+	bool equal_sides = false;
+	float rectangle_dimensions[2] = { 0.1f, 0.1f };
+	float circle_radius = 0.01f;
 
 	bool esc_pressed = false;
 	bool shift_pressed = false;
@@ -62,8 +66,14 @@ int main() {
 	bool num_3_pressed = false;
 	bool num_4_pressed = false;
 	bool tilde_pressed = false;
+	bool tab_pressed = false;
 	bool R_pressed = false;
 	bool C_pressed = false;
+
+	bool LMB_pressed = false;
+	bool RMB_pressed = false;
+	double cursor_X_position;
+	double cursor_Y_position;
 
 	bool render_grid_arrows = false;
 	bool render_flow_arrows = false;
@@ -77,7 +87,9 @@ int main() {
 	float grid_arrows_color[4] = { 0.1, 0.1, 0.8, 1.0 };
 
 	const char* render_modes[] = { "divergence", "pressure", "attribute", "flow" };
+	const int render_modes_count = 4;
 	int cell_render_mode = 0;
+	bool continous_rendering = false;
 	float color_maximum = 1.0f;
 
 	bool manual_dt_control = false;
@@ -93,43 +105,71 @@ int main() {
 	float density = 1.225f;
 
 	const char* modify_actions[] = { "wall", "spawner", "stir", "attribute" };
+	const int modify_actions_count = 4;
 	int modifying_action = 0;
-	bool reset_all = false;
 
-	int x = fluid_grid.obstacle_tex()->getWidth();
-	int y = fluid_grid.obstacle_tex()->getHeight();
-	std::vector<int> zeroed(x * y, 0);
-	fluid_grid.obstacle_tex()->write(
-		0, 0, 0,
-		x, y,
-		GL_RED_INTEGER,
-		GL_UNSIGNED_BYTE,
-		zeroed.data()
-	);
+	// ==========================================
+	// FUNCTION DEFINITIONS
+	// ==========================================
 
-	std::vector<int> obstacles(20, 1);
-	obstacles.at(9) = 0;
-	obstacles.at(10) = 0;
-	obstacles.at(11) = 0;
-	fluid_grid.obstacle_tex()->write(
-		0, 100, fluid_grid.getGridSize().y / 2 - 10,
-		1, 20,
-		GL_RED_INTEGER,
-		GL_UNSIGNED_BYTE,
-		obstacles.data()
-	);
+	auto auto_config = [
+		&fluid_grid,
+		&manual_dt_control,
+		&time_step,
+		&simulation_speed,
+		&paused,
+		&cell_render_mode,
+		&render_grid_arrows,
+		&color_maximum,
+		&rbGS_iteration_count,
+		&SOR]() {
 
+		manual_dt_control = true;
+		time_step = 1.0f / 60.0f;
+		simulation_speed = 1.0f;
+		paused = false;
+		cell_render_mode = 2;
+		render_grid_arrows = false;
+		color_maximum = 1.0f;
+		rbGS_iteration_count = 30;
+		SOR = 1.7f;
+	};
+
+	auto button_released = [&window](int glfw_button, bool &pressed_last_frame) {
+		if (glfwGetKey(window.getContext(), glfw_button) == GLFW_PRESS) {
+			if (!pressed_last_frame) {
+				pressed_last_frame = true;
+				return true;
+			}
+		}
+		else pressed_last_frame = false;
+		return false;
+	};
+	auto mouse_button_released = [&window](int glfw_button, bool &pressed_last_frame) {
+		if (glfwGetMouseButton(window.getContext(), glfw_button) == GLFW_PRESS) {
+			if (!pressed_last_frame) {
+				pressed_last_frame = true;
+				return true;
+			}
+		}
+		else pressed_last_frame = false;
+		return false;
+	};
+
+	// ==========================================
+	// PROGRAM LOOP
+	// ==========================================
 	while (!window.shouldClose()) {
 		window.updateFormat();
 		window.clear(GL_COLOR_BUFFER_BIT);
-		window.setBackground(0.1, 0.1, 0.1, 1);
-		window.setViewportPos(0.025, 0.025, 0, 0);
-		window.setViewportSize(0.95, 0.95, 0, 0);
+		window.setBackground(0.1f, 0.1f, 0.1f, 1.0f);
+		window.setViewportPos(0.0f, 0.0f, 0.0f, 0.0f);
+		window.setViewportSize(1.0f, 1.0f, 0.0f, 0.0f);
 		window.setViewport();
 
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
+		// ==========================================
+		// TIME CONTROL
+		// ==========================================
 
 		last_frame_time = current_time;
 		current_time = std::chrono::steady_clock::now();
@@ -143,6 +183,10 @@ int main() {
 			time_step = std::chrono::duration<float>(current_time - last_frame_time).count();
 
 		delta_time = time_step * simulation_speed;
+
+		// ==========================================
+		// SIMULATION
+		// ==========================================
 
 		if (!paused && delta_time != 0) {
 			fluid_grid.compute_divergence(delta_time, density);
@@ -169,6 +213,52 @@ int main() {
 			);
 		}
 
+		// ==========================================
+		// BUTTON INPUT
+		// ==========================================
+		if (button_released(GLFW_KEY_ESCAPE, esc_pressed))
+			render_ui = !render_ui;
+
+		if (button_released(GLFW_KEY_SPACE, space_pressed))
+			paused = !paused;
+
+		if (button_released(GLFW_KEY_1, num_2_pressed))
+			cell_render_mode = 0;
+
+		if (button_released(GLFW_KEY_2, num_2_pressed))
+			cell_render_mode = 1;
+
+		if (button_released(GLFW_KEY_3, num_3_pressed))
+				cell_render_mode = 2;
+
+		if (button_released(GLFW_KEY_4, num_4_pressed))
+			cell_render_mode = 3;
+
+		if (button_released(GLFW_KEY_GRAVE_ACCENT, tilde_pressed))
+			render_obstacles = !render_obstacles;
+
+		if (button_released(GLFW_KEY_C, C_pressed)) {
+			auto_config();
+		}
+
+		if (button_released(GLFW_KEY_R, R_pressed))
+			fluid_grid.reset();
+
+		if (button_released(GLFW_KEY_TAB, tab_pressed)) {
+			continous_rendering = !continous_rendering;
+			GLenum filter = continous_rendering ? GL_LINEAR : GL_NEAREST;
+			fluid_grid.pressure_tex()->setFilter(filter, filter);
+			fluid_grid.divergence_tex()->setFilter(filter, filter);
+			fluid_grid.attribute_tex()->setFilter(filter, filter);
+
+			fluid_grid.divergence_tex_2()->setFilter(filter, filter);
+			fluid_grid.attribute_tex_2()->setFilter(filter, filter);
+		}
+
+		// ==========================================
+		// CELL RENDERING
+		// ==========================================
+
 		fluid_grid.render_cells(cell_render_mode, 1.0f / color_maximum);
 
 		if (render_obstacles) {
@@ -194,153 +284,21 @@ int main() {
 
 		}
 
-		if (glfwGetKey(window.getContext(), GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-			if (!esc_pressed) {
-				esc_pressed = true;
-				render_ui = !render_ui;
-			}
-		} else esc_pressed = false;
-
-		if (glfwGetKey(window.getContext(), GLFW_KEY_SPACE) == GLFW_PRESS) {
-			if (!space_pressed) {
-				space_pressed = true;
-				paused = !paused;
-			}
-		} else space_pressed = false;
-
-		if (glfwGetKey(window.getContext(), GLFW_KEY_1) == GLFW_PRESS) {
-			if (!num_1_pressed) {
-				num_1_pressed = true;
-				cell_render_mode = 0;
-			}
-		} else num_1_pressed = false;
-
-		if (glfwGetKey(window.getContext(), GLFW_KEY_2) == GLFW_PRESS) {
-			if (!num_2_pressed) {
-				num_2_pressed = true;
-				cell_render_mode = 1;
-			}
-		} else num_2_pressed = false;
-
-		if (glfwGetKey(window.getContext(), GLFW_KEY_3) == GLFW_PRESS) {
-			if (!num_3_pressed) {
-				num_3_pressed = true;
-				cell_render_mode = 2;
-			}
-		} else num_3_pressed = false;
-
-		if (glfwGetKey(window.getContext(), GLFW_KEY_4) == GLFW_PRESS) {
-			if (!num_4_pressed) {
-				num_4_pressed = true;
-				cell_render_mode = 3;
-			}
-		} else num_4_pressed = false;
-
-		if (glfwGetKey(window.getContext(), GLFW_KEY_GRAVE_ACCENT) == GLFW_PRESS) {
-			if (!tilde_pressed) {
-				tilde_pressed = true;
-				render_obstacles = !render_obstacles;
-			}
-		} else tilde_pressed = false;
-
-		if (glfwGetKey(window.getContext(), GLFW_KEY_C) == GLFW_PRESS) {
-			if (!C_pressed) {
-				C_pressed = true;
-				manual_dt_control = true;
-				time_step = 1.0f / 60.0f;
-				simulation_speed = 1.0f;
-				paused = false;
-				cell_render_mode = 2;
-				render_grid_arrows = false;
-				color_maximum = 1.0f;
-				rbGS_iteration_count = 30;
-				SOR = 1.7f;
-
-				std::vector<int> obstacles(100, 1);
-				int n = 10;
-				for (int i = 0; i < n; i++) {
-					obstacles.at(i + (100 - n) / 2) = 0;
-				}
-				fluid_grid.obstacle_tex()->write(
-					0, 110, fluid_grid.getGridSize().y / 2 - 100,
-					1, 100,
-					GL_RED_INTEGER,
-					GL_UNSIGNED_BYTE,
-					obstacles.data()
-				);
-			}
-		} else C_pressed = false;
-
-		if (glfwGetKey(window.getContext(), GLFW_KEY_R) == GLFW_PRESS) {
-			if (!R_pressed) {
-				R_pressed = true;
-				int x = fluid_grid.obstacle_tex()->getWidth();
-				int y = fluid_grid.obstacle_tex()->getHeight();
-
-				std::vector<int> zeroedObstacle(x * y, 0);
-				std::vector<float> zeroedFlowX((x + 1) * y, 0.0f);
-				std::vector<float> zeroedFlowY(x * (y + 1), 0.0f);
-				std::vector<float> zeroedPressure(x * y, 0.0f);
-				std::vector<float> zeroedDivergence(x * y * 2, 0.0f);
-				std::vector<float> zeroedAttributes(x * y * 4, 0.0f);
-
-				fluid_grid.obstacle_tex()->write(
-					0, 0, 0,
-					x, y,
-					GL_RED_INTEGER,
-					GL_UNSIGNED_BYTE,
-					zeroedObstacle.data()
-				);
-				fluid_grid.velocity_X_tex()->write(
-					0, 0, 0,
-					x + 1, y,
-					GL_RED,
-					GL_FLOAT,
-					zeroedFlowX.data()
-				);
-				fluid_grid.velocity_Y_tex()->write(
-					0, 0, 0,
-					x, y + 1,
-					GL_RED,
-					GL_FLOAT,
-					zeroedFlowY.data()
-				);
-				fluid_grid.pressure_tex()->write(
-					0, 0, 0,
-					x, y,
-					GL_RED,
-					GL_FLOAT,
-					zeroedPressure.data()
-				);
-				fluid_grid.divergence_tex()->write(
-					0, 0, 0,
-					x, y,
-					GL_RG,
-					GL_FLOAT,
-					zeroedDivergence.data()
-				);
-				fluid_grid.attribute_tex()->write(
-					0, 0, 0,
-					x, y,
-					GL_RGBA,
-					GL_FLOAT,
-					zeroedAttributes.data()
-				);
-			}
-		} else R_pressed = false;
-
-		if (glfwGetKey(window.getContext(), GLFW_KEY_GRAVE_ACCENT) == GLFW_PRESS) {
-			if (!tilde_pressed) {
-			tilde_pressed = true;
-			render_obstacles = !render_obstacles;
-			}
-		} else tilde_pressed = false;
-
+		// ==========================================
+		// UI RENDERING + INPUT
+		// ==========================================
 		if (render_ui) {
+			ImGui_ImplOpenGL3_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
+
 			const float ui_width = 100.0f;
 			ImGui::SetNextWindowSizeConstraints(ImVec2(210, FLT_MIN), ImVec2(FLT_MAX, FLT_MAX));
 			ImGui::Begin("settings");
 
+			// ==========================================
+			// RENDERING
+			// ==========================================
 			if (ImGui::TreeNode("rendering")) {
 				if (ImGui::TreeNode("flow"))
 				{
@@ -367,12 +325,22 @@ int main() {
 				if (ImGui::TreeNode("cells"))
 				{
 					ImGui::SetNextItemWidth(ui_width);
-					ImGui::Combo("render mode", &cell_render_mode, render_modes, 4);
+					ImGui::Combo("render mode", &cell_render_mode, render_modes, render_modes_count);
 
 					ImGui::SetNextItemWidth(ui_width);
-					ImGui::SliderFloat("intensity", &color_maximum, 0.1f, 2.0f, "%.3f");
+					ImGui::SliderFloat("max color", &color_maximum, 0.01f, 2.0f, "%.3f");
 
 					ImGui::Checkbox(" render obstacles", &render_obstacles);
+
+					if (ImGui::Checkbox(" continous rendering", &continous_rendering)) {
+						GLenum filter = continous_rendering ? GL_LINEAR : GL_NEAREST;
+						fluid_grid.pressure_tex()->setFilter(filter, filter);
+						fluid_grid.divergence_tex()->setFilter(filter, filter);
+						fluid_grid.attribute_tex()->setFilter(filter, filter);
+
+						fluid_grid.divergence_tex_2()->setFilter(filter, filter);
+						fluid_grid.attribute_tex_2()->setFilter(filter, filter);
+					}
 
 					ImGui::SetNextItemWidth(ui_width);
 					ImGui::ColorEdit4("obstacle color", obstacle_color);
@@ -382,6 +350,9 @@ int main() {
 				ImGui::TreePop();
 			}
 
+			// ==========================================
+			// PHYSICS
+			// ==========================================
 			if (ImGui::TreeNode("simulation")) {
 				ImGui::SeparatorText("time");
 
@@ -415,19 +386,22 @@ int main() {
 				ImGui::TreePop();
 			}
 
-			// TODO: move variables above main loop
+
+			// ==========================================
+			// MODIFY
+			// ==========================================
 			// TODO: interaction system
 			if (ImGui::TreeNode("modify")) {
 				ImGui::SetNextItemWidth(ui_width);
-				ImGui::Combo("action", &modifying_action, modify_actions, 4);
+				ImGui::Combo("action", &modifying_action, modify_actions, modify_actions_count);
 
 				switch (modifying_action) {
 				case 0:
-					ImGui::Text("LMB: paint wall");
-					ImGui::Text("RMB: erase wall");
+					ImGui::Text("LMB - paint wall");
+					ImGui::Text("RMB - erase wall");
 
 					ImGui::SetNextItemWidth(ui_width);
-					ImGui::Combo("shape", &paint_shape, paint_shapes, 2);
+					ImGui::Combo("shape", &paint_shape, paint_shapes, paint_shapes_count);
 
 					switch (paint_shape) {
 					case 0:
@@ -449,7 +423,28 @@ int main() {
 					case 1:
 						// sphere
 						ImGui::SetNextItemWidth(ui_width);
-						ImGui::SliderFloat("radius", &sphere_radius, 0, 2.0f, "%.4f");
+						ImGui::SliderFloat("radius", &circle_radius, 0, 0.1f, "%.4f");
+
+						if (!ImGui::GetIO().WantCaptureMouse && glfwGetMouseButton(window.getContext(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+							glfwGetCursorPos(window.getContext(), &cursor_X_position, &cursor_Y_position);
+
+							float local_cursor_position_X = cursor_X_position / window.getFormat()->height;
+							float local_cursor_position_Y = 1.0f - cursor_Y_position / window.getFormat()->height;
+
+							fluid_grid.draw_circle(
+								{ local_cursor_position_X, local_cursor_position_Y },
+								circle_radius, 1);
+						}
+						if (!ImGui::GetIO().WantCaptureMouse && glfwGetMouseButton(window.getContext(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+							glfwGetCursorPos(window.getContext(), &cursor_X_position, &cursor_Y_position);
+
+							float local_cursor_position_X = cursor_X_position / window.getFormat()->height;
+							float local_cursor_position_Y = 1.0f - cursor_Y_position / window.getFormat()->height;
+
+							fluid_grid.draw_circle(
+								{ local_cursor_position_X, local_cursor_position_Y },
+								circle_radius, 0);
+						}
 						break;
 					}
 					break;
@@ -466,25 +461,31 @@ int main() {
 				}
 
 				ImGui::SetNextItemWidth(ui_width);
-				reset_all = ImGui::Button("reset grid");
+				if (ImGui::Button("reset grid"))
+					fluid_grid.reset();
 
 				ImGui::TreePop();
 			}
 
+			// ==========================================
+			// CONTROLS
+			// ==========================================
 			if (ImGui::TreeNode("controls")) {
 
 				ImGui::Text("Esc - toggle ui");
 				ImGui::Text("Space - toggle paused");
-				ImGui::Text("1-4 - cycle render modes");
-				ImGui::Text("Shift - speed up");
-				ImGui::Text("Ctrl - slow down");
 				ImGui::Text("Tildo - toggle obstacles");
+				ImGui::Text("Tab - continous rendering");
+				ImGui::Text("1-4 - cycle render modes");
 				ImGui::Text("R - reset grids");
 				ImGui::Text("C - auto config");
 
 				ImGui::TreePop();
 			}
 
+			// ==========================================
+			// DEBUG
+			// ==========================================
 			if (ImGui::TreeNode("debug")) {
 				ImGui::Text("fps: %f.2", 1.0f / std::chrono::duration<float>(current_time - last_frame_time).count());
 				ImGui::Text("time step: %f.2", time_step);
@@ -493,58 +494,7 @@ int main() {
 
 				ImGui::SetNextItemWidth(ui_width);
 				if (ImGui::Button("reset grdids")) {
-					int x = fluid_grid.obstacle_tex()->getWidth();
-					int y = fluid_grid.obstacle_tex()->getHeight();
-
-					std::vector<int> zeroedObstacle(x * y, 0);
-					std::vector<float> zeroedFlowX((x + 1) * y, 0.0f);
-					std::vector<float> zeroedFlowY(x * (y + 1), 0.0f);
-					std::vector<float> zeroedPressure(x * y, 0.0f);
-					std::vector<float> zeroedDivergence(x * y * 2, 0.0f);
-					std::vector<float> zeroedAttributes(x * y * 4, 0.0f);
-
-					fluid_grid.obstacle_tex()->write(
-						0, 0, 0,
-						x, y,
-						GL_RED_INTEGER,
-						GL_UNSIGNED_BYTE,
-						zeroedObstacle.data()
-					);
-					fluid_grid.velocity_X_tex()->write(
-						0, 0, 0,
-						x + 1, y,
-						GL_RED,
-						GL_FLOAT,
-						zeroedFlowX.data()
-					);
-					fluid_grid.velocity_Y_tex()->write(
-						0, 0, 0,
-						x, y + 1,
-						GL_RED,
-						GL_FLOAT,
-						zeroedFlowY.data()
-					);
-					fluid_grid.pressure_tex()->write(
-						0, 0, 0,
-						x, y,
-						GL_RED,
-						GL_FLOAT,
-						zeroedPressure.data()
-					);
-					fluid_grid.divergence_tex()->write(
-						0, 0, 0,
-						x, y,
-						GL_RG,
-						GL_FLOAT,
-						zeroedDivergence.data()
-					);
-					fluid_grid.attribute_tex()->write(
-						0, 0, 0,
-						x, y,
-						GL_RGBA,
-						GL_FLOAT,
-						zeroedAttributes.data()
-					);
+					fluid_grid.reset();
 				}
 				ImGui::SetNextItemWidth(ui_width);
 				if (ImGui::Button("run divergence")) {
@@ -573,69 +523,17 @@ int main() {
 					fluid_grid.compute_velocities(delta_time, density);
 					fluid_grid.compute_velocity_advection(delta_time);
 				}
-
-				ImGui::SetNextItemWidth(ui_width);
-				if (ImGui::Button("create divergence")) {
-					float speed = 0.5f;
-					fluid_grid.velocity_X_tex()->write(
-						0, 1, fluid_grid.getGridSize().y / 2,
-						1, 1,
-						GL_RED,
-						GL_FLOAT,
-						&speed);
-				}
 				ImGui::SetNextItemWidth(ui_width);
 				if (ImGui::Button("auto set")) {
-					manual_dt_control = true;
-					time_step = 1.0f / 60.0f;
-					simulation_speed = 1.0f;
-					paused = false;
-					cell_render_mode = 2;
-					render_grid_arrows = false;
-					color_maximum = 1.0f;
-					rbGS_iteration_count = 30;
-					SOR = 1.7f;
-
-					std::vector<int> obstacles(100, 1);
-					int n = 10;
-					for (int i = 0; i < n; i++) {
-						obstacles.at(i + (100 - n) / 2) = 0;
-					}
-					fluid_grid.obstacle_tex()->write(
-						0, 110, fluid_grid.getGridSize().y / 2 - 100,
-						1, 100,
-						GL_RED_INTEGER,
-						GL_UNSIGNED_BYTE,
-						obstacles.data()
-					);
+					auto_config();
 				}
 				ImGui::TreePop();
 			}
-
-			//static bool run = false;
-			//if (ImGui::Button("run")) {
-			//	run = !run;
-			//}
-			//if (run) {
-			//	fluid_grid.compute_divergence();
-			//	fluid_grid.compute_pressure(60);
-			//	fluid_grid.compute_velocities();
-			//	fluid_grid.compute_velocity_advection();
-			//	float speed = 10.0f;
-			//	fluid_grid.flowX[fluid_grid.current_flow_data].write(
-			//		0, 50, 100,
-			//		1, 1,
-			//		GL_RED,
-			//		GL_FLOAT,
-			//		&speed);
-			//}
-			//if (ImGui::Button("reset")) {
-			//	ImGui::Text("not yet implemented");
-			//}
 			ImGui::End();
+
+			ImGui::Render();
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		}
-		ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		window.swapBuffers();
 		glfwPollEvents();

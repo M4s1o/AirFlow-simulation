@@ -20,6 +20,7 @@ private:
 	ShaderProgram obstacleRenderProg;
 	ShaderProgram velocityXrenderProg;
 	ShaderProgram velocityYrenderProg;
+
 	ShaderProgram divergenceComputeProg;
 	ShaderProgram pressureComputeProg;
 	ShaderProgram velocityXComputeProg;
@@ -27,9 +28,12 @@ private:
 	ShaderProgram velocityXAdvectionComputeProg;
 	ShaderProgram velocityYAdvectionComputeProg;
 	ShaderProgram attributeAdvectionComputeProg;
+
+	ShaderProgram circleDrawComputeProg;
+
 	VAO vao;
 
-	glm::ivec2 cell_count = { 6, 6 };
+	glm::ivec2 cell_count = { 0, 0 };
 
 	Texture pressure_texture = {
 		Texture(GL_TEXTURE_2D, 1, GL_R32F, cell_count.x, cell_count.y)
@@ -117,6 +121,9 @@ public:
 		attributeAdvectionComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "compute/attribute_advection.comp"));
 		attributeAdvectionComputeProg.compile();
 
+		circleDrawComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "modify/circle.comp"));
+		circleDrawComputeProg.compile();
+
 		for (int i = 0; i < 2; i++) {
 
 			divergence_texture[i].setFilter(GL_NEAREST, GL_NEAREST);
@@ -141,6 +148,8 @@ public:
 		obstacle_texture.setFilter(GL_NEAREST, GL_NEAREST);
 		obstacle_texture.setWrap(GL_REPEAT, GL_REPEAT);
 		obstacle_texture.loadImage(GL_READ_WRITE, 0, GL_FALSE, 0, GL_R8UI);
+
+		reset();
 	}
 
 	void render_cells(int render_mode, float render_intensity) {
@@ -307,6 +316,78 @@ public:
 		current_attribute_data = !current_attribute_data;
 	}
 
+	void draw_circle(glm::vec2 center, float radius, int state) {
+		circleDrawComputeProg.useProgram();
+
+		obstacle_texture.bindImage(IMAGE_UNIT_0);
+
+		glUniform2f(glGetUniformLocation(circleDrawComputeProg.getID(), "circle_center"), center.x, center.y);
+		glUniform1f(glGetUniformLocation(circleDrawComputeProg.getID(), "radius"), radius);
+		glUniform1i(glGetUniformLocation(circleDrawComputeProg.getID(), "state"), state);
+		glUniform2i(glGetUniformLocation(circleDrawComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
+		glUniform1f(glGetUniformLocation(circleDrawComputeProg.getID(), "cell_side_length"), 1.0f / (float)cell_count.y);
+
+		circleDrawComputeProg.runCompute(cell_count.x, cell_count.y, 1, GL_ALL_BARRIER_BITS);
+	}
+
+	void reset() {
+		int x = cell_count.x;
+		int y = cell_count.y;
+
+		std::vector<int> zeroedObstacle(x * y, 0);
+		std::vector<float> zeroedFlowX((x + 1) * y, 0.0f);
+		std::vector<float> zeroedFlowY(x * (y + 1), 0.0f);
+		std::vector<float> zeroedPressure(x * y, 0.0f);
+		std::vector<float> zeroedDivergence(x * y * 2, 0.0f);
+		std::vector<float> zeroedAttributes(x * y * 4, 0.0f);
+
+		for (int i = 0; i < 2; i++) {
+			velocities_X_texture[i].write(
+				0, 0, 0,
+				x + 1, y,
+				GL_RED,
+				GL_FLOAT,
+				zeroedFlowX.data()
+			);
+			velocities_Y_texture[i].write(
+				0, 0, 0,
+				x, y + 1,
+				GL_RED,
+				GL_FLOAT,
+				zeroedFlowY.data()
+			);
+			divergence_texture[i].write(
+				0, 0, 0,
+				x, y,
+				GL_RG,
+				GL_FLOAT,
+				zeroedDivergence.data()
+			);
+			attribute_texture[i].write(
+				0, 0, 0,
+				x, y,
+				GL_RGBA,
+				GL_FLOAT,
+				zeroedAttributes.data()
+			);
+		}
+
+		obstacle_texture.write(
+			0, 0, 0,
+			x, y,
+			GL_RED_INTEGER,
+			GL_UNSIGNED_BYTE,
+			zeroedObstacle.data()
+		);
+		pressure_texture.write(
+			0, 0, 0,
+			x, y,
+			GL_RED,
+			GL_FLOAT,
+			zeroedPressure.data()
+		);
+	}
+
 	Texture* pressure_tex() {
 		return &pressure_texture;
 	}
@@ -324,6 +405,19 @@ public:
 	}
 	Texture* obstacle_tex() {
 		return &obstacle_texture;
+	}
+
+	Texture* divergence_tex_2() {
+		return &divergence_texture[!current_divergence_data];
+	}
+	Texture* velocity_X_tex_2() {
+		return &velocities_X_texture[!current_velocity_data];
+	}
+	Texture* velocity_Y_tex_2() {
+		return &velocities_Y_texture[!current_velocity_data];
+	}
+	Texture* attribute_tex_2() {
+		return &attribute_texture[!current_attribute_data];
 	}
 
 	glm::ivec2 getGridSize() {
