@@ -3,6 +3,8 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 
 layout(r8ui, binding = 0) uniform uimage2D obstacle_Texture;
+layout(r16f, binding = 1) uniform image2D attribute_Texture_A;
+layout(r16f, binding = 2) uniform image2D attribute_Texture_B;
 
 uniform int state;
 uniform float radius;
@@ -25,6 +27,9 @@ void main() {
 
     vec2 cell_position = vec2(cell_coord) * cell_side_length;
 
-    if (length(cell_position - circle_center) <= radius)
+    if (length(cell_position - circle_center) <= radius) {
         imageStore(obstacle_Texture, cell_coord, uvec4(state, 0, 0, 0));
+        imageStore(attribute_Texture_A, cell_coord, vec4(0.0, 0.0, 0.0, 0.0));
+        imageStore(attribute_Texture_B, cell_coord, vec4(0.0, 0.0, 0.0, 0.0));
+    }
 }
