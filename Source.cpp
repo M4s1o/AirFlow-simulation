@@ -29,6 +29,7 @@ int main() {
 	window.setSize(0, 0, 1920, 1080);
 	window.setName("Air - flower");
 	window.setMaximized(true);
+	window.setFullscreen(true);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -55,7 +56,7 @@ int main() {
 
 	const char* paint_shapes[] = { "rectangle", "circle", "line" };
 	const int paint_shapes_count = 3;
-	int paint_shape = 0;
+	int paint_shape = 1;
 
 	bool equal_sides = false;
 	float rectangle_dimensions[2] = { 0.1f, 0.1f };
@@ -73,6 +74,7 @@ int main() {
 	bool R_pressed = false;
 	bool C_pressed = false;
 	bool Q_pressed = false;
+	bool F_pressed = false;
 	bool F11_pressed = false;
 
 	bool LMB_pressed = false;
@@ -196,14 +198,21 @@ int main() {
 		if (!paused && delta_time != 0) {
 			fluid_grid.compute_divergence(delta_time, density);
 			fluid_grid.compute_pressure(rbGS_iteration_count, SOR);
+
+			//fluid_grid.setPressure(fluid_grid.getGridSize().x - 1, 0, 1, fluid_grid.getGridSize().y, 0.0f);
+			//fluid_grid.setVelocity_X(fluid_grid.getGridSize().x - 1, 0, 1, fluid_grid.getGridSize().y, 2.0f);
+
 			fluid_grid.compute_velocities(delta_time, density);
 			fluid_grid.compute_attribute_advection(delta_time);
 			fluid_grid.compute_velocity_advection(delta_time);
 
-			fluid_grid.setVelocity_X(1, 0, 1, fluid_grid.getGridSize().y, 50.0f);
+			fluid_grid.setVelocity_X(1, (fluid_grid.getGridSize().y - 10) / 2, 1, 20, 10.0f);
 			fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - 10) / 2, 1, 20, { 1.0f, 1.0f, 1.0f, 1.0f });
 
-			fluid_grid.setPressure(fluid_grid.getGridSize().x - 1, 0, 1, fluid_grid.getGridSize().y, 0.0f);
+			//fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y + 20) / 2, 1, 20, { 0.0f, 0.0f, 1.0f, 1.0f });
+			//fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - 10) / 2, 1, 20, { 0.0f, 1.0f, 0.0f, 1.0f });
+			//fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - 40) / 2, 1, 20, { 1.0f, 0.0f, 0.0f, 1.0f });
+
 		}
 
 		// ==========================================
@@ -239,6 +248,11 @@ int main() {
 
 		if (button_released(GLFW_KEY_R, R_pressed))
 			fluid_grid.reset();
+
+		if (button_released(GLFW_KEY_F, F_pressed)) {
+			fluid_grid.reset_fluid();
+			fluid_grid.reset_attributes();
+		}
 
 		if (button_released(GLFW_KEY_TAB, tab_pressed)) {
 			continous_rendering = !continous_rendering;
@@ -468,7 +482,7 @@ int main() {
 				ImGui::SetNextItemWidth(ui_width);
 				if (ImGui::Button("reset fluid")) {
 					fluid_grid.reset_fluid();
-					fluid_grid.reset_attributes();
+					//fluid_grid.reset_attributes();
 				}
 
 				ImGui::SetNextItemWidth(ui_width);

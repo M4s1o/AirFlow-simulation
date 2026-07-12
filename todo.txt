@@ -1,0 +1,15 @@
+
+
+- separate UI + input from compute + rendering
+- obstacles save/load
+- fluid save/load
+- image save + image to fluid
+- spawner, accelerator, stir functions
+- optimization for real-time 1080p resolution run
+- triangle shape rasteration + fluid interaction + rigid body
+- boyancy, outside forces like gravity
+- density field
+- more realistic physics engine
+- config file for seting auto-config
+
+
