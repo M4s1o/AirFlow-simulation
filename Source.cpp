@@ -54,6 +54,10 @@ int main() {
 
 	bool program_should_close = false;
 
+	const char* demo_names[] = { "empty", "3 color jet", "smoke", "3 color fill", "2 jets", " 3 colored jets", "line of smoke" };
+	const int demo_count = 6;
+	int current_demo = 0;
+
 	const char* paint_shapes[] = { "rectangle", "circle", "line" };
 	const int paint_shapes_count = 3;
 	int paint_shape = 1;
@@ -200,18 +204,52 @@ int main() {
 			fluid_grid.compute_pressure(rbGS_iteration_count, SOR);
 
 			//fluid_grid.setPressure(fluid_grid.getGridSize().x - 1, 0, 1, fluid_grid.getGridSize().y, 0.0f);
-			//fluid_grid.setVelocity_X(fluid_grid.getGridSize().x - 1, 0, 1, fluid_grid.getGridSize().y, 2.0f);
+			//fluid_grid.setVelocity_X(fluid_grid.getGridSize().x - 1, 0, 1, fluid_grid.getGridSize().y, 10.0f);
 
 			fluid_grid.compute_velocities(delta_time, density);
 			fluid_grid.compute_attribute_advection(delta_time);
 			fluid_grid.compute_velocity_advection(delta_time);
 
-			fluid_grid.setVelocity_X(1, (fluid_grid.getGridSize().y - 10) / 2, 1, 20, 10.0f);
-			fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - 10) / 2, 1, 20, { 1.0f, 1.0f, 1.0f, 1.0f });
 
-			//fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y + 20) / 2, 1, 20, { 0.0f, 0.0f, 1.0f, 1.0f });
-			//fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - 10) / 2, 1, 20, { 0.0f, 1.0f, 0.0f, 1.0f });
-			//fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - 40) / 2, 1, 20, { 1.0f, 0.0f, 0.0f, 1.0f });
+			switch (current_demo) {
+				case 1:
+					{
+					const int n = 60;
+					fluid_grid.setVelocity_X(1, (fluid_grid.getGridSize().y - n) / 2, 1, n, 2.0f);
+
+					fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - n / 3) / 2 + n / 3, 1, n / 3, { 0.0f, 0.0f, 1.0f, 1.0f });
+					fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - n / 3) / 2        , 1, n / 3, { 0.0f, 1.0f, 0.0f, 1.0f });
+					fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - n / 3) / 2 - n / 3, 1, n / 3, { 1.0f, 0.0f, 0.0f, 1.0f });
+					break;
+					}
+				case 2:
+					{
+					const int n = 30;
+					fluid_grid.setVelocity_Y((fluid_grid.getGridSize().x - n) / 2, 1, n, 1, 2.0f);
+					fluid_grid.setAttributes((fluid_grid.getGridSize().x - n) / 2, 1, n, 1, { 1.0f, 1.0f, 1.0f, 1.0f });
+					break;
+					}
+				case 3:
+					{
+					const int n = 60;
+					fluid_grid.setVelocity_X(1, (fluid_grid.getGridSize().y - n) / 2, 1, n, 5.0f);
+
+					fluid_grid.setAttributes(fluid_grid.getGridSize().x / 3 * 0 + 1, 1, fluid_grid.getGridSize().x / 3, fluid_grid.getGridSize().y, { 0.0f, 0.0f, 1.0f, 1.0f });
+					fluid_grid.setAttributes(fluid_grid.getGridSize().x / 3 * 1 + 1, 1, fluid_grid.getGridSize().x / 3, fluid_grid.getGridSize().y, { 0.0f, 1.0f, 0.0f, 1.0f });
+					fluid_grid.setAttributes(fluid_grid.getGridSize().x / 3 * 2 + 1, 1, fluid_grid.getGridSize().x / 3, fluid_grid.getGridSize().y, { 1.0f, 0.0f, 0.0f, 1.0f });
+					break;
+					}
+				case 4:
+					{
+					const int n = 10;
+					fluid_grid.setVelocity_X(1, (fluid_grid.getGridSize().y - n) / 2, 1, n, 5.0f);
+					fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - n) / 2, 1, n, { 1.0f, 0.0f, 0.0f, 1.0f });
+
+					fluid_grid.setVelocity_X(fluid_grid.getGridSize().x -1, (fluid_grid.getGridSize().y - n) / 2, 1, n, -5.0f);
+					fluid_grid.setAttributes(fluid_grid.getGridSize().x -1, (fluid_grid.getGridSize().y - n) / 2, 1, n, { 0.0f, 1.0f, 0.0f, 1.0f });
+					break;
+					}
+			}
 
 		}
 
@@ -480,6 +518,10 @@ int main() {
 				}
 
 				ImGui::SetNextItemWidth(ui_width);
+				ImGui::Combo("demo", &current_demo, demo_names, demo_count);
+
+
+				ImGui::SetNextItemWidth(ui_width);
 				if (ImGui::Button("reset fluid")) {
 					fluid_grid.reset_fluid();
 					//fluid_grid.reset_attributes();
@@ -553,6 +595,15 @@ int main() {
 				if (ImGui::Button("auto set")) {
 					auto_config();
 				}
+
+				ImGui::SetNextItemWidth(ui_width);
+				if (ImGui::Button("create pressure wave"))
+					fluid_grid.setVelocity_X(80, (fluid_grid.getGridSize().y - 41) / 2, 1, 41, 10.0f);
+
+				ImGui::SetNextItemWidth(ui_width);
+				if (ImGui::Button("set speed to 0.002"))
+					simulation_speed = 0.002f;
+
 				ImGui::TreePop();
 			}
 
