@@ -86,6 +86,11 @@ int main() {
 	bool RMB_pressed = false;
 	double cursor_X_position;
 	double cursor_Y_position;
+	
+	Fence cell_rendering_fence;
+	Fence cell_compute_fence;
+	bool render_now = false;
+	bool compute_now = false;
 
 	bool render_grid_arrows = false;
 	bool render_flow_arrows = false;
@@ -177,78 +182,75 @@ int main() {
 	// PROGRAM LOOP
 	// ==========================================
 	while (!window.shouldClose() && !program_should_close) {
-		window.updateFormat();
-		window.clear(GL_COLOR_BUFFER_BIT);
-		window.setBackground(0.1f, 0.1f, 0.1f, 1.0f);
-		window.setViewportPos(0.0f, 0.0f, 0.0f, 0.0f);
-		window.setViewportSize(1.0f, 1.0f, 0.0f, 0.0f);
-		window.setViewport();
+		// ==========================================
+		// SCHEDULING
+		// ==========================================
+		
+		render_now = false;
+		compute_now = false;
+
+		if (cell_rendering_fence.signaled() && cell_compute_fence.signaled()) {
+			render_now = true;
+			compute_now = true;
+		}
+		render_now = true;
 
 		// ==========================================
 		// TIME CONTROL
 		// ==========================================
-
-		last_frame_time = current_time;
-		current_time = std::chrono::steady_clock::now();
-
-		if (manual_dt_control) {
-			while (std::chrono::duration<float>(current_time - last_frame_time).count() < time_step) {
-				current_time = std::chrono::steady_clock::now();
+		
+		if (compute_now) {
+			last_frame_time = current_time;
+			current_time = std::chrono::steady_clock::now();
+	
+			if (manual_dt_control) {
+				while (std::chrono::duration<float>(current_time - last_frame_time).count() < time_step) {
+					current_time = std::chrono::steady_clock::now();
+				}
+				delta_time = injected_delta_time;
 			}
-			delta_time = injected_delta_time;
-		}
-		else {
-			time_step = std::chrono::duration<float>(current_time - last_frame_time).count();
-			delta_time = time_step * simulation_speed;
+			else {
+				time_step = std::chrono::duration<float>(current_time - last_frame_time).count();
+				delta_time = time_step * simulation_speed;
+			}
 		}
 
 		// ==========================================
-		// SIMULATION
+		// UPDATE LOOP
 		// ==========================================
 
-		if (!paused && delta_time != 0) {
-			fluid_grid.compute_divergence(delta_time, density);
-			fluid_grid.compute_pressure(rbGS_iteration_count, SOR);
-
-			//fluid_grid.setPressure(fluid_grid.getGridSize().x - 1, 0, 1, fluid_grid.getGridSize().y, 0.0f);
-			//fluid_grid.setVelocity_X(fluid_grid.getGridSize().x - 1, 0, 1, fluid_grid.getGridSize().y, 10.0f);
-
-			fluid_grid.compute_velocities(delta_time, density);
-			fluid_grid.compute_attribute_advection(delta_time);
-			fluid_grid.compute_velocity_advection(delta_time);
-
-
+		if (!paused && delta_time != 0 && compute_now) {
 			switch (current_demo) {
 				case 1:
 					{
-					const int n = 60;
-					fluid_grid.setVelocity_X(1, (fluid_grid.getGridSize().y - n) / 2, 1, n, 2.0f);
+					const int n = 59;
+					fluid_grid.setVelocity_X(0, (fluid_grid.getGridSize().y - n) / 2, 1, n, 2.0f);
 
-					fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - n / 3) / 2 + n / 3, 1, n / 3, { 0.0f, 0.0f, 1.0f, 1.0f });
-					fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - n / 3) / 2        , 1, n / 3, { 0.0f, 1.0f, 0.0f, 1.0f });
-					fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - n / 3) / 2 - n / 3, 1, n / 3, { 1.0f, 0.0f, 0.0f, 1.0f });
+					fluid_grid.setAttributes(0, (fluid_grid.getGridSize().y - n / 3) / 2 + n / 3, 1, n / 3, { 0.0f, 0.0f, 1.0f, 1.0f });
+					fluid_grid.setAttributes(0, (fluid_grid.getGridSize().y - n / 3) / 2        , 1, n / 3, { 0.0f, 1.0f, 0.0f, 1.0f });
+					fluid_grid.setAttributes(0, (fluid_grid.getGridSize().y - n / 3) / 2 - n / 3, 1, n / 3, { 1.0f, 0.0f, 0.0f, 1.0f });
 					break;
 					}
 				case 2:
 					{
-					const int n = 30;
-					fluid_grid.setVelocity_Y((fluid_grid.getGridSize().x - n) / 2, 1, n, 1, 2.0f);
-					fluid_grid.setAttributes((fluid_grid.getGridSize().x - n) / 2, 1, n, 1, { 1.0f, 1.0f, 1.0f, 1.0f });
+					const int n = 29;
+					fluid_grid.setVelocity_Y((fluid_grid.getGridSize().x - n) / 1, 1, n, 1, 2.0f);
+					fluid_grid.setAttributes((fluid_grid.getGridSize().x - n) / 1, 1, n, 1, { 1.0f, 1.0f, 1.0f, 1.0f });
 					break;
 					}
 				case 3:
 					{
-					const int n = 60;
-					fluid_grid.setVelocity_X(1, (fluid_grid.getGridSize().y - n) / 2, 1, n, 5.0f);
+					const int n = 59;
+					fluid_grid.setVelocity_X(0, (fluid_grid.getGridSize().y - n) / 2, 1, n, 5.0f);
 
-					fluid_grid.setAttributes(fluid_grid.getGridSize().x / 3 * 0 + 1, 1, fluid_grid.getGridSize().x / 3, fluid_grid.getGridSize().y, { 0.0f, 0.0f, 1.0f, 1.0f });
-					fluid_grid.setAttributes(fluid_grid.getGridSize().x / 3 * 1 + 1, 1, fluid_grid.getGridSize().x / 3, fluid_grid.getGridSize().y, { 0.0f, 1.0f, 0.0f, 1.0f });
-					fluid_grid.setAttributes(fluid_grid.getGridSize().x / 3 * 2 + 1, 1, fluid_grid.getGridSize().x / 3, fluid_grid.getGridSize().y, { 1.0f, 0.0f, 0.0f, 1.0f });
+					fluid_grid.setAttributes(fluid_grid.getGridSize().x / 2 * 0 + 1, 1, fluid_grid.getGridSize().x / 3, fluid_grid.getGridSize().y, { 0.0f, 0.0f, 1.0f, 1.0f });
+					fluid_grid.setAttributes(fluid_grid.getGridSize().x / 2 * 1 + 1, 1, fluid_grid.getGridSize().x / 3, fluid_grid.getGridSize().y, { 0.0f, 1.0f, 0.0f, 1.0f });
+					fluid_grid.setAttributes(fluid_grid.getGridSize().x / 2 * 2 + 1, 1, fluid_grid.getGridSize().x / 3, fluid_grid.getGridSize().y, { 1.0f, 0.0f, 0.0f, 1.0f });
 					break;
 					}
 				case 4:
 					{
-					const int n = 10;
+					const int n = 9;
 					fluid_grid.setVelocity_X(2, (fluid_grid.getGridSize().y - n) / 2, 1, n, 5.0f);
 					fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - n) / 2, 1, n, { 1.0f, 0.0f, 0.0f, 1.0f });
 
@@ -258,6 +260,16 @@ int main() {
 					}
 			}
 
+			fluid_grid.compute_divergence(delta_time, density);
+			fluid_grid.compute_pressure(rbGS_iteration_count, SOR);
+
+			//fluid_grid.setPressure(fluid_grid.getGridSize().x - 1, 0, 1, fluid_grid.getGridSize().y, 0.0f);
+			//fluid_grid.setVelocity_X(fluid_grid.getGridSize().x - 1, 0, 1, fluid_grid.getGridSize().y, 10.0f);
+
+			fluid_grid.compute_velocities(delta_time, density);
+			fluid_grid.compute_attribute_advection(delta_time);
+			fluid_grid.compute_velocity_advection(delta_time);
+			cell_compute_fence.place();
 		}
 
 		// ==========================================
@@ -316,29 +328,40 @@ int main() {
 		// CELL RENDERING
 		// ==========================================
 
-		fluid_grid.render_cells(cell_render_mode, 1.0f / color_maximum);
+		if (render_now) {
+			std::cout << "rendering succesfull!!!" << std::endl;
+			window.updateFormat();
+			window.clear(GL_COLOR_BUFFER_BIT);
+			window.setBackground(0.1f, 0.1f, 0.1f, 1.0f);
+			window.setViewportPos(0.0f, 0.0f, 0.0f, 0.0f);
+			window.setViewportSize(1.0f, 1.0f, 0.0f, 0.0f);
+			window.setViewport();
 
-		if (render_obstacles) {
-			fluid_grid.render_obstacles({
-				obstacle_color[0],
-				obstacle_color[1],
-				obstacle_color[2],
-				obstacle_color[3]
-			});
-		}
+			fluid_grid.render_cells(cell_render_mode, 1.0f / color_maximum);
+	
+			if (render_obstacles) {
+				fluid_grid.render_obstacles({
+					obstacle_color[0],
+					obstacle_color[1],
+					obstacle_color[2],
+					obstacle_color[3]
+				});
+			}
 
-		if (render_grid_arrows) {
-			fluid_grid.render_main_velocities(
-				grid_arrows_width,
-				grid_arrows_magnitude, {
-				grid_arrows_color[0],
-				grid_arrows_color[1],
-				grid_arrows_color[2],
-				grid_arrows_color[3]
-			});
-		}
-		if (render_flow_arrows) {
+			if (render_grid_arrows) {
+				fluid_grid.render_main_velocities(
+					grid_arrows_width,
+					grid_arrows_magnitude, {
+					grid_arrows_color[0],
+					grid_arrows_color[1],
+					grid_arrows_color[2],
+					grid_arrows_color[3]
+				});
+			}
+			if (render_flow_arrows) {
 
+			}
+			cell_rendering_fence.place();
 		}
 
 		// ==========================================
