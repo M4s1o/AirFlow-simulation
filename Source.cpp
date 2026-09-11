@@ -45,8 +45,9 @@ int main() {
 	const auto start_time = std::chrono::steady_clock::now();
 	auto current_time = start_time;
 	auto last_frame_time = current_time;
-
-	FluidGrid fluid_grid({ 1920 / 4, 1080 / 4 });
+	
+	glm::ivec2 grid_resolution = { 1920 / 4, 1080 / 4 };
+	FluidGrid fluid_grid(grid_resolution);
 
 	// ==========================================
 	// VARIABLE DEFINITIONS
@@ -107,6 +108,7 @@ int main() {
 	float time_step = 0.0f;
 	float simulation_speed = 0.0;
 	float delta_time = 0.0f;
+	float injected_delta_time = 0.0f;
 	bool paused = true;
 
 	bool vsync = true;
@@ -133,7 +135,9 @@ int main() {
 		&render_grid_arrows,
 		&color_maximum,
 		&rbGS_iteration_count,
-		&SOR]() {
+		&SOR,
+		&current_demo,
+		&injected_delta_time]() {
 
 		manual_dt_control = true;
 		time_step = 1.0f / 60.0f;
@@ -144,6 +148,8 @@ int main() {
 		color_maximum = 1.0f;
 		rbGS_iteration_count = 30;
 		SOR = 1.7f;
+		current_demo = 4;
+		injected_delta_time = 0.0002f;
 	};
 
 	auto button_released = [&window](int glfw_button, bool &pressed_last_frame) {
@@ -189,11 +195,12 @@ int main() {
 			while (std::chrono::duration<float>(current_time - last_frame_time).count() < time_step) {
 				current_time = std::chrono::steady_clock::now();
 			}
+			delta_time = injected_delta_time;
 		}
-		else
+		else {
 			time_step = std::chrono::duration<float>(current_time - last_frame_time).count();
-
-		delta_time = time_step * simulation_speed;
+			delta_time = time_step * simulation_speed;
+		}
 
 		// ==========================================
 		// SIMULATION
@@ -242,11 +249,11 @@ int main() {
 				case 4:
 					{
 					const int n = 10;
-					fluid_grid.setVelocity_X(1, (fluid_grid.getGridSize().y - n) / 2, 1, n, 5.0f);
+					fluid_grid.setVelocity_X(2, (fluid_grid.getGridSize().y - n) / 2, 1, n, 5.0f);
 					fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - n) / 2, 1, n, { 1.0f, 0.0f, 0.0f, 1.0f });
 
-					fluid_grid.setVelocity_X(fluid_grid.getGridSize().x -1, (fluid_grid.getGridSize().y - n) / 2, 1, n, -5.0f);
-					fluid_grid.setAttributes(fluid_grid.getGridSize().x -1, (fluid_grid.getGridSize().y - n) / 2, 1, n, { 0.0f, 1.0f, 0.0f, 1.0f });
+					fluid_grid.setVelocity_X(fluid_grid.getGridSize().x -2, (fluid_grid.getGridSize().y - n) / 2, 1, n, -5.0f);
+					fluid_grid.setAttributes(fluid_grid.getGridSize().x -2, (fluid_grid.getGridSize().y - n) / 2, 1, n, { 0.0f, 1.0f, 0.0f, 1.0f });
 					break;
 					}
 			}
@@ -406,10 +413,12 @@ int main() {
 			if (ImGui::TreeNode("simulation")) {
 				ImGui::SeparatorText("time");
 
+				// TODO: automatic stabilizer (adjusts delta_time based on courant number)
+
 				ImGui::Checkbox(" manual time step", &manual_dt_control);
 				if (manual_dt_control) {
 					ImGui::SetNextItemWidth(ui_width);
-					ImGui::SliderFloat("delta time", &time_step, 0, 1.0f / 20.0f, "%.7f");
+					ImGui::SliderFloat("delta time", &injected_delta_time, 0, 1.0f / 20.0f, "%.7f");
 				}
 
 				ImGui::SetNextItemWidth(ui_width);
@@ -563,6 +572,20 @@ int main() {
 				ImGui::Text("time step: %f.2", time_step);
 				ImGui::Text("time step (real): %f.2", std::chrono::duration<float>(current_time - last_frame_time).count());
 				ImGui::Text("delta time: %f.2", delta_time);
+				ImGui::Text("real-time speed: %f.2", delta_time / std::chrono::duration<float>(current_time - last_frame_time).count());
+				// TODO: find biggest velocity on the grid (max_velocity)
+				/*
+				float courant = max_velocity * delta_time / (1.0f / (float)grid_resolution.x);
+				ImGui::Text("Courant number: %f.2", courant);
+				if (courant < 0.3f)
+					ImGui::Text("state: very precise");
+				else if (courant < 0.5f)
+					ImGui::Text("state: precise");
+				else if (courant < 1.0f)
+					ImGui::Text("state: stable (lossy)");
+				else
+					ImGui::Text("state: unstable");
+				*/
 
 				ImGui::SetNextItemWidth(ui_width);
 				if (ImGui::Button("run divergence")) {

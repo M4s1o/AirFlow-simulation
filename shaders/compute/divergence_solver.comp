@@ -57,5 +57,5 @@ void main() {
     divergence_data.g = velocity_term;
     imageStore(divergence_Texture_out, cell_coord, divergence_data);
 
-    imageStore(pressure_Texture, cell_coord, vec4(0.0, 0.0, 0.0, 0.0));
+    //imageStore(pressure_Texture, cell_coord, vec4(0.0, 0.0, 0.0, 0.0));
 }
