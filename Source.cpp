@@ -46,7 +46,7 @@ int main() {
 	auto current_time = start_time;
 	auto last_frame_time = current_time;
 	
-	glm::ivec2 grid_resolution = { 1920 / 4, 1080 / 4 };
+	glm::ivec2 grid_resolution = { 640, 360 };
 	FluidGrid fluid_grid(grid_resolution);
 
 	// ==========================================
@@ -54,6 +54,8 @@ int main() {
 	// ==========================================
 
 	bool program_should_close = false;
+
+	float max_velocity_on_grid = 0.0f;
 
 	const char* demo_names[] = { "empty", "3 color jet", "smoke", "3 color fill", "2 jets", " 3 colored jets", "line of smoke" };
 	const int demo_count = 6;
@@ -220,10 +222,12 @@ int main() {
 		// ==========================================
 
 		if (!paused && delta_time != 0 && compute_now) {
+			max_velocity_on_grid = 999999999.9f;
 			switch (current_demo) {
 				case 1:
 					{
-					const int n = 59;
+					max_velocity_on_grid = 2.0f;
+					const int n = 60;
 					fluid_grid.setVelocity_X(0, (fluid_grid.getGridSize().y - n) / 2, 1, n, 2.0f);
 
 					fluid_grid.setAttributes(0, (fluid_grid.getGridSize().y - n / 3) / 2 + n / 3, 1, n / 3, { 0.0f, 0.0f, 1.0f, 1.0f });
@@ -233,13 +237,15 @@ int main() {
 					}
 				case 2:
 					{
-					const int n = 29;
-					fluid_grid.setVelocity_Y((fluid_grid.getGridSize().x - n) / 1, 1, n, 1, 2.0f);
-					fluid_grid.setAttributes((fluid_grid.getGridSize().x - n) / 1, 1, n, 1, { 1.0f, 1.0f, 1.0f, 1.0f });
+					max_velocity_on_grid = 2.0f;
+					const int n = 30;
+					fluid_grid.setVelocity_Y((fluid_grid.getGridSize().x - n) / 2, 4, n, 1, 2.0f);
+					fluid_grid.setAttributes((fluid_grid.getGridSize().x - n) / 2, 4, n, 1, { 1.0f, 1.0f, 1.0f, 1.0f });
 					break;
 					}
 				case 3:
 					{
+					max_velocity_on_grid = 5.0f;
 					const int n = 59;
 					fluid_grid.setVelocity_X(0, (fluid_grid.getGridSize().y - n) / 2, 1, n, 5.0f);
 
@@ -250,7 +256,8 @@ int main() {
 					}
 				case 4:
 					{
-					const int n = 9;
+					max_velocity_on_grid = 5.0f;
+					const int n = 10;
 					fluid_grid.setVelocity_X(2, (fluid_grid.getGridSize().y - n) / 2, 1, n, 5.0f);
 					fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - n) / 2, 1, n, { 1.0f, 0.0f, 0.0f, 1.0f });
 
@@ -329,7 +336,6 @@ int main() {
 		// ==========================================
 
 		if (render_now) {
-			std::cout << "rendering succesfull!!!" << std::endl;
 			window.updateFormat();
 			window.clear(GL_COLOR_BUFFER_BIT);
 			window.setBackground(0.1f, 0.1f, 0.1f, 1.0f);
@@ -609,6 +615,34 @@ int main() {
 				else
 					ImGui::Text("state: unstable");
 				*/
+				// TEMPORARY:
+				ImGui::SeparatorText("stability");
+
+				float courant = max_velocity_on_grid * delta_time / (1.0f / (float)grid_resolution.x);
+				ImGui::Text("Courant number: %f.2", courant);
+
+				if (courant < 0.3f)
+					ImGui::Text("state: very precise");
+				else if (courant < 0.5f)
+					ImGui::Text("state: precise");
+				else if (courant < 1.0f)
+					ImGui::Text("state: stable (lossy)");
+				else
+					ImGui::Text("state: unstable");
+
+				static float temp_requested_courant_number = 0.5f;
+				ImGui::SetNextItemWidth(ui_width);
+				ImGui::SliderFloat("req. courant", &temp_requested_courant_number, 0.0f, 1.0f, "%.2f");
+				float ideal_delta_time = ((1.0f / (float)grid_resolution.x) * temp_requested_courant_number) / max_velocity_on_grid;
+				ImGui::Text("ideal delta time: %f.3", ideal_delta_time);
+
+				ImGui::SetNextItemWidth(ui_width);
+				if (ImGui::Button("set ideal delta time")) {
+					manual_dt_control = true;
+					injected_delta_time = ideal_delta_time;
+				}
+
+				ImGui::SeparatorText("compute");
 
 				ImGui::SetNextItemWidth(ui_width);
 				if (ImGui::Button("run divergence")) {
