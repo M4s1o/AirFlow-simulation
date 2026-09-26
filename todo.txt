@@ -1,6 +1,6 @@
 
 
-- separate UI + input from compute + rendering
+- (semi-implemented) separate UI + input from compute + rendering
 - obstacles save/load
 - fluid save/load
 - image save + image to fluid

@@ -1,0 +1,3 @@
+/home/maslo/Projects/AirFlow-simulation/build/CMakeFiles/AirFlower.dir
+/home/maslo/Projects/AirFlow-simulation/build/CMakeFiles/edit_cache.dir
+/home/maslo/Projects/AirFlow-simulation/build/CMakeFiles/rebuild_cache.dir
