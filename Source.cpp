@@ -139,7 +139,7 @@ int main() {
 	auto auto_config = [
 		&fluid_grid,
 		&manual_dt_control,
-		&time_step,
+		&injected_delta_time,
 		&simulation_speed,
 		&paused,
 		&cell_render_mode,
@@ -148,10 +148,11 @@ int main() {
 		&rbGS_iteration_count,
 		&SOR,
 		&current_demo,
-		&injected_delta_time]() {
+		&window,
+		&vsync]() {
 
 		manual_dt_control = true;
-		time_step = 1.0f / 60.0f;
+		injected_delta_time = 0.0078125f;
 		simulation_speed = 1.0f;
 		paused = true;
 		cell_render_mode = 2;
@@ -160,7 +161,8 @@ int main() {
 		rbGS_iteration_count = 30;
 		SOR = 1.7f;
 		current_demo = 5;
-		injected_delta_time = 0.002f;
+		vsync = false;
+		window.setVsync(vsync);
 	};
 
 	auto button_released = [&window](int glfw_button, bool &pressed_last_frame) {
@@ -204,18 +206,17 @@ int main() {
 		// ==========================================
 		// TIME CONTROL
 		// ==========================================
-		
-		if (compute_now) {
+
+		if (!paused && compute_now) {
 			last_frame_time = current_time;
 			current_time = std::chrono::steady_clock::now();
-	
+			time_step = std::chrono::duration<float>(current_time - last_frame_time).count();
+
 			if (manual_dt_control) {
-				time_step = std::chrono::duration<float>(current_time - last_frame_time).count();
 				float expected_delta_time = time_step * simulation_speed;
 				delta_time = std::min(injected_delta_time, expected_delta_time);
 			}
 			else {
-				time_step = std::chrono::duration<float>(current_time - last_frame_time).count();
 				delta_time = time_step * simulation_speed;
 			}
 		}
@@ -287,7 +288,7 @@ int main() {
 			//fluid_grid.setVelocity_X(fluid_grid.getGridSize().x - 1, 0, 1, fluid_grid.getGridSize().y, 10.0f);
 
 			fluid_grid.compute_velocities(delta_time, density);
-			fluid_grid.compute_attribute_advection(delta_time);
+			fluid_grid.compute_attribute_advection(delta_time);window.setVsync(vsync);
 			fluid_grid.compute_velocity_advection(delta_time);
 			cell_compute_fence.place();
 		}
@@ -386,7 +387,7 @@ int main() {
 		// ==========================================
 		// UI RENDERING + INPUT
 		// ==========================================
-		if (render_ui) {
+		if (render_now && render_ui) {
 			ImGui_ImplOpenGL3_NewFrame();
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();

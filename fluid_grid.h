@@ -89,6 +89,7 @@ public:
 	// ==========================================
 	// SETUP
 	// ==========================================
+
 	FluidGrid(glm::vec2 cell_count)
 		: cell_count(cell_count) {
 		// shader setup
@@ -165,6 +166,7 @@ public:
 	// ==========================================
 	// RENDERING
 	// ==========================================
+
 	void render_cells(int render_mode, float render_intensity) {
 		cellRenderProg.useProgram();
 
@@ -211,6 +213,7 @@ public:
 	// ==========================================
 	// SIMULATION COMPUTE
 	// ==========================================
+
 	void compute_divergence(float dt, float density) {
 		divergenceComputeProg.useProgram();
 
@@ -335,6 +338,7 @@ public:
 	// ==========================================
 	// MODIFY
 	// ==========================================
+
 	void draw_circle(glm::vec2 center, float radius, int state) {
 		circleDrawComputeProg.useProgram();
 
@@ -354,6 +358,7 @@ public:
 	// ==========================================
 	// RESETS
 	// ==========================================
+
 	void reset_fluid() {
 		int x = cell_count.x;
 		int y = cell_count.y;
@@ -433,6 +438,7 @@ public:
 	// ==========================================
 	// SET
 	// ==========================================
+
 	void setPressure(int x, int y, int width, int height, float pressure) {
 		std::vector<float> pressure_data(width * height, pressure);
 		pressure_texture.write(
@@ -519,6 +525,7 @@ public:
 	// ==========================================
 	// DEBUG + HELPER FUCNTIONS
 	// ==========================================
+
 	Texture* pressure_tex() {
 		return &pressure_texture;
 	}
