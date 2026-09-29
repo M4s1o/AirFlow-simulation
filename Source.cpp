@@ -57,12 +57,12 @@ int main() {
 
 	float max_velocity_on_grid = 0.0f;
 
-	const char* demo_names[] = { "empty", "3 color jet", "smoke", "3 color fill", "2 jets", "wind tunnel", " 3 colored jets", "line of smoke" };
-	const int demo_count = 6;
+	const char* demo_names[] = { "empty", "smoke", "jetstream", "jet & lines (WIP)", "jet & ball", "2 jets", "jet & wall", "vacuum", "tri color"};
+	const int demo_count = 9;
 	int current_demo = 0;
 	float specific_demo_velocity = 0.1f;
 
-	const char* paint_shapes[] = { "rectangle", "circle", "line" };
+	const char* paint_shapes[] = { "rectangle (WIP)", "circle", "line (WIP)" };
 	const int paint_shapes_count = 3;
 	int paint_shape = 1;
 
@@ -84,7 +84,6 @@ int main() {
 	bool Q_pressed = false;
 	bool F_pressed = false;
 	bool F11_pressed = false;
-			std::cout << "scheduled" << std::endl;
 
 	bool LMB_pressed = false;
 	bool RMB_pressed = false;
@@ -126,7 +125,7 @@ int main() {
 
 	float density = 1.225f;
 
-	const char* modify_actions[] = { "wall", "spawner", "stir", "attribute" };
+	const char* modify_actions[] = { "wall", "spawner (WIP)", "stir (WIP)", "attribute (WIP)" };
 	const int modify_actions_count = 4;
 	int modifying_action = 0;
 
@@ -186,10 +185,98 @@ int main() {
 		return false;
 	};
 
+	auto reset_demo = [&fluid_grid, &current_demo, &specific_demo_velocity, &max_velocity_on_grid]() {
+	};
+	auto update_demo = [&fluid_grid, &current_demo, &specific_demo_velocity, &max_velocity_on_grid]() {
+		max_velocity_on_grid = 999999999999.99f;
+		switch (current_demo) {
+		case 1:
+			{
+			float specific_velocity = specific_demo_velocity;
+			max_velocity_on_grid = specific_demo_velocity;
+			const int n = 30;
+
+			fluid_grid.setVelocity_Y((fluid_grid.getGridSize().x - n) / 2, 4, n, 1, specific_demo_velocity);
+			fluid_grid.setAttributes((fluid_grid.getGridSize().x - n) / 2, 4, n, 1, { 1.0f, 1.0f, 1.0f, 1.0f });
+			break;
+			}
+		case 2:
+			{
+			float specific_velocity = specific_demo_velocity;
+			max_velocity_on_grid = specific_demo_velocity;
+			const int n = 60;
+
+			fluid_grid.setVelocity_X(fluid_grid.getGridSize().x / 2, (fluid_grid.getGridSize().y - n) / 2, 2, n, specific_demo_velocity);
+			fluid_grid.setAttributes(fluid_grid.getGridSize().x / 2, (fluid_grid.getGridSize().y - n) / 2, 2, n, {0.0f, 1.0f, 1.0f, 1.0f });
+			break;
+			}
+		case 3:
+			{
+			break;
+			}
+		case 4:
+			{
+			float specific_velocity = specific_demo_velocity;
+			max_velocity_on_grid = specific_velocity;
+			const int n = 60;
+			const int d = 100;
+			const int w = 40;
+
+			fluid_grid.setVelocity_X((fluid_grid.getGridSize().x - d) / 2, (fluid_grid.getGridSize().y - n) / 2, 1, n, specific_velocity);
+			fluid_grid.setAttributes((fluid_grid.getGridSize().x + d) / 2, (fluid_grid.getGridSize().y - w) / 2, w, w, { 1.0f, 1.0f, 1.0f, 1.0f });
+			break;
+			}
+		case 5:
+			{
+			float specific_velocity = specific_demo_velocity;
+			max_velocity_on_grid = specific_demo_velocity;
+			const int n = 10;
+			const int d = 60;
+			const int p = 8;
+
+			fluid_grid.setVelocity_X((fluid_grid.getGridSize().x - d) / 2    , (fluid_grid.getGridSize().y - n - p) / 2, 1, n, specific_demo_velocity);
+			fluid_grid.setAttributes((fluid_grid.getGridSize().x - d) / 2 - 1, (fluid_grid.getGridSize().y - n - p) / 2, 1, n, { 1.0f, 1.0f, 0.0f, 1.0f });
+
+			fluid_grid.setVelocity_X((fluid_grid.getGridSize().x + d) / 2, (fluid_grid.getGridSize().y - n + p) / 2, 1, n, -specific_demo_velocity);
+			fluid_grid.setAttributes((fluid_grid.getGridSize().x + d) / 2, (fluid_grid.getGridSize().y - n + p) / 2, 1, n, { 0.0f, 1.0f, 1.0f, 1.0f });
+			break;
+			}
+		case 6:
+			{
+			break;
+			}
+		case 7:
+			{
+			break;
+			}
+		case 8:
+			{
+			float specific_velocity = specific_demo_velocity;
+			max_velocity_on_grid = specific_demo_velocity;
+			const int d = 30;
+			const int n = 10;
+			const int D = 40;
+			const int w = 20;
+
+			fluid_grid.setVelocity_Y((fluid_grid.getGridSize().x - D - n) / 2, (fluid_grid.getGridSize().y + d) / 2, n, 1, -specific_demo_velocity);
+			fluid_grid.setAttributes((fluid_grid.getGridSize().x - D - n) / 2, (fluid_grid.getGridSize().y + d) / 2, n, 1, { 1.0f, 0.0f, 0.0f, 1.0f });
+
+			fluid_grid.setVelocity_Y((fluid_grid.getGridSize().x - D - n) / 2, (fluid_grid.getGridSize().y - d) / 2    , n, 1, specific_demo_velocity);
+			fluid_grid.setAttributes((fluid_grid.getGridSize().x - D - n) / 2, (fluid_grid.getGridSize().y - d) / 2 - 1, n, 1, { 0.0f, 0.0f, 1.0f, 1.0f });
+
+			fluid_grid.setVelocity_X((fluid_grid.getGridSize().x - D - d) / 2    , (fluid_grid.getGridSize().y - n) / 2, 1, n, specific_demo_velocity);
+			fluid_grid.setAttributes((fluid_grid.getGridSize().x - D - d) / 2 - 1, (fluid_grid.getGridSize().y - n) / 2, 1, n, { 0.0f, 1.0f, 0.0f, 1.0f });
+			break;
+			}
+		}
+	};
+
 	// ==========================================
 	// PROGRAM LOOP
 	// ==========================================
+	
 	while (!window.shouldClose() && !program_should_close) {
+
 		// ==========================================
 		// SCHEDULING
 		// ==========================================
@@ -226,61 +313,8 @@ int main() {
 		// ==========================================
 
 		if (!paused && delta_time != 0 && compute_now) {
-			max_velocity_on_grid = 999999999.9f;
-			switch (current_demo) {
-				case 1:
-					{
-					float specific_velocity = specific_demo_velocity;
-					max_velocity_on_grid = specific_velocity;
-					const int n = 60;
-					fluid_grid.setVelocity_X(0, (fluid_grid.getGridSize().y - n) / 2, 1, n, specific_velocity);
-
-					fluid_grid.setAttributes(0, (fluid_grid.getGridSize().y - n / 3) / 2 + n / 3, 1, n / 3, { 0.0f, 0.0f, 1.0f, 1.0f });
-					fluid_grid.setAttributes(0, (fluid_grid.getGridSize().y - n / 3) / 2        , 1, n / 3, { 0.0f, 1.0f, 0.0f, 1.0f });
-					fluid_grid.setAttributes(0, (fluid_grid.getGridSize().y - n / 3) / 2 - n / 3, 1, n / 3, { 1.0f, 0.0f, 0.0f, 1.0f });
-					break;
-					}
-				case 2:
-					{
-
-					float specific_velocity = specific_demo_velocity;
-					max_velocity_on_grid = specific_demo_velocity;
-					const int n = 30;
-					fluid_grid.setVelocity_Y((fluid_grid.getGridSize().x - n) / 2, 4, n, 1, specific_demo_velocity);
-					fluid_grid.setAttributes((fluid_grid.getGridSize().x - n) / 2, 4, n, 1, { 1.0f, 1.0f, 1.0f, 1.0f });
-					break;
-					}
-				case 3:
-					{
-					float specific_velocity = specific_demo_velocity;
-					max_velocity_on_grid = specific_demo_velocity;
-					const int n = 60;
-					fluid_grid.setVelocity_X(0, (fluid_grid.getGridSize().y - n) / 2, 1, n, specific_demo_velocity);
-					break;
-					}
-				case 4:
-					{
-					float specific_velocity = specific_demo_velocity;
-					max_velocity_on_grid = specific_demo_velocity;
-					const int n = 10;
-					fluid_grid.setVelocity_X(2, (fluid_grid.getGridSize().y - n) / 2, 1, n, specific_demo_velocity);
-					fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - n) / 2, 1, n, { 1.0f, 0.0f, 0.0f, 1.0f });
-
-					fluid_grid.setVelocity_X(fluid_grid.getGridSize().x -2, (fluid_grid.getGridSize().y - n) / 2, 1, n, -specific_demo_velocity);
-					fluid_grid.setAttributes(fluid_grid.getGridSize().x -2, (fluid_grid.getGridSize().y - n) / 2, 1, n, { 0.0f, 1.0f, 0.0f, 1.0f });
-					break;
-					}
-				case 5:
-					{
-					float specific_velocity = specific_demo_velocity;
-					max_velocity_on_grid = specific_demo_velocity;
-					const int n = 60;
-					fluid_grid.setVelocity_X(fluid_grid.getGridSize().x / 2, (fluid_grid.getGridSize().y - n) / 2, 2, n, specific_demo_velocity);
-					fluid_grid.setAttributes(fluid_grid.getGridSize().x / 2, (fluid_grid.getGridSize().y - n) / 2, 2, n, {0.0f, 1.0f, 0.0f, 1.0f });
-					break;
-					}
-			}
-
+			update_demo();
+			
 			fluid_grid.compute_divergence(delta_time, density);
 			fluid_grid.compute_pressure(rbGS_iteration_count, SOR);
 
@@ -324,8 +358,10 @@ int main() {
 			auto_config();
 		}
 
-		if (button_released(GLFW_KEY_R, R_pressed))
+		if (button_released(GLFW_KEY_R, R_pressed)) {
 			fluid_grid.reset();
+			reset_demo();
+		}
 
 		if (button_released(GLFW_KEY_F, F_pressed)) {
 			fluid_grid.reset_fluid();
@@ -508,7 +544,7 @@ int main() {
 					switch (paint_shape) {
 					case 0:
 						// rectangle
-						ImGui::SeparatorText("rectangle / square");
+						ImGui::SeparatorText("rectangle / square - WIP");
 
 						ImGui::Checkbox(" equal sides", &equal_sides);
 
@@ -554,7 +590,7 @@ int main() {
 						break;
 					case 2:
 						// line
-						ImGui::SeparatorText("line");
+						ImGui::SeparatorText("line - WIP");
 					}
 					break;
 
@@ -570,25 +606,8 @@ int main() {
 				}
 
 				ImGui::SetNextItemWidth(ui_width);
-				if (ImGui::Combo("demo", &current_demo, demo_names, demo_count)) {
-					switch (current_demo) {
-						case 0:
-							break;
-						case 1:
-							break;
-						case 2:
-							break;
-						case 3:
-							fluid_grid.setAttributes(fluid_grid.getGridSize().x / 2 * 0 + 1, 1, fluid_grid.getGridSize().x / 3, fluid_grid.getGridSize().y, { 0.0f, 0.0f, 1.0f, 1.0f });
-							fluid_grid.setAttributes(fluid_grid.getGridSize().x / 2 * 1 + 1, 1, fluid_grid.getGridSize().x / 3, fluid_grid.getGridSize().y, { 0.0f, 1.0f, 0.0f, 1.0f });
-							fluid_grid.setAttributes(fluid_grid.getGridSize().x / 2 * 2 + 1, 1, fluid_grid.getGridSize().x / 3, fluid_grid.getGridSize().y, { 1.0f, 0.0f, 0.0f, 1.0f });
-							break;
-						case 4:
-							break;
-						case 5:
-							break;
-					}
-				}
+				if (ImGui::Combo("demo", &current_demo, demo_names, demo_count))
+					reset_demo();
 
 				ImGui::SetNextItemWidth(ui_width);
 				ImGui::SliderFloat("demo velocity", &specific_demo_velocity, 0.01, 0.3, "%.3f");
@@ -598,6 +617,7 @@ int main() {
 				ImGui::SetNextItemWidth(ui_width);
 				if (ImGui::Button("reset fluid")) {
 					fluid_grid.reset_fluid();
+					reset_demo();
 					//fluid_grid.reset_attributes();
 				}
 
@@ -606,8 +626,10 @@ int main() {
 					fluid_grid.reset_obstacles();
 
 				ImGui::SetNextItemWidth(ui_width);
-				if (ImGui::Button("reset all"))
+				if (ImGui::Button("reset all")) {
 					fluid_grid.reset();
+					reset_demo();
+				}
 
 				ImGui::TreePop();
 			}
