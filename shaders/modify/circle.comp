@@ -2,13 +2,28 @@
 
 layout(local_size_x = 8, local_size_y = 8) in;
 
-layout(r8ui, binding = 0) uniform uimage2D obstacle_Texture;
-layout(r16f, binding = 1) uniform image2D attribute_Texture_A;
-layout(r16f, binding = 2) uniform image2D attribute_Texture_B;
+layout(r32f, binding = 0) uniform image2D pressure_Texture;
 
-uniform int state;
+layout(r16f, binding = 1) uniform image2D flowX_Texture_A;
+layout(r16f, binding = 2) uniform image2D flowX_Texture_B;
+
+layout(r16f, binding = 3) uniform image2D flowY_Texture_A;
+layout(r16f, binding = 4) uniform image2D flowY_Texture_B;
+
+layout(r16f, binding = 5) uniform image2D attribute_Texture_A;
+layout(r16f, binding = 6) uniform image2D attribute_Texture_B;
+
+layout(r8ui, binding = 7) uniform uimage2D obstacle_Texture;
+
+uniform int compacted_parameters;
+
+uniform float new_pressure;
+uniform vec2  new_velocity;
+uniform vec4  new_attribute;
+uniform int   new_state;
+
 uniform float radius;
-uniform vec2 circle_center;
+uniform vec2  circle_center;
 
 uniform float cell_side_length;
 uniform ivec2 cell_count;
@@ -18,18 +33,68 @@ bool cellExists(ivec2 cell_coord) {
     if (cell_coord.x >= cell_count.x || cell_coord.y >= cell_count.y) return false;
     return true;
 }
+bool velocity_X_Exists(ivec2 velocity_coord) {
+    if (velocity_coord.x < 0 || velocity_coord.y < 0) return false;
+    if (velocity_coord.x >= cell_count.x + 1 || velocity_coord.y >= cell_count.y) return false;
+    return true;
+}
+bool velocity_Y_Exists(ivec2 velocity_coord) {
+    if (velocity_coord.x < 0 || velocity_coord.y < 0) return false;
+    if (velocity_coord.x >= cell_count.x || velocity_coord.y >= cell_count.y + 1) return false;
+    return true;
+}
+
+const int action_set = 0;
+const int action_add = 1;
 
 void main() {
     uvec2 ucell = gl_GlobalInvocationID.xy;
-    if (!cellExists(ivec2(ucell))) return;
 
-    ivec2 cell_coord = ivec2(ucell);
+    // unpack
+    bool change_preasure   = bool((compacted_parameters >> 0) & 1);
+    bool change_velocity_X = bool((compacted_parameters >> 1) & 1);
+    bool change_velocity_Y = bool((compacted_parameters >> 2) & 1);
+    bool change_attribute  = bool((compacted_parameters >> 3) & 1);
+    bool change_state      = bool((compacted_parameters >> 4) & 1);
+    int  action = (bool((compacted_parameters >> 5) & 1)) ? action_add : action_set;
 
-    vec2 cell_position = vec2(cell_coord) * cell_side_length;
+    // cells
+    if (cellExists(ivec2(ucell))) {
+        ivec2 cell_coord = ivec2(ucell);
 
-    if (length(cell_position - circle_center) <= radius) {
-        imageStore(obstacle_Texture, cell_coord, uvec4(state, 0, 0, 0));
-        imageStore(attribute_Texture_A, cell_coord, vec4(0.0, 0.0, 0.0, 0.0));
-        imageStore(attribute_Texture_B, cell_coord, vec4(0.0, 0.0, 0.0, 0.0));
+        vec2 cell_position = vec2(cell_coord) * cell_side_length;
+
+        if (length(cell_position - circle_center) <= radius) {
+            if (action == action_set) {
+                if (change_preasure)
+                    imageStore(pressure_Texture, cell_coord, uvec4(new_pressure, 0, 0, 0));
+                if (change_attribute) {
+                    imageStore(attribute_Texture_A, cell_coord, uvec4(new_attribute));
+                    imageStore(attribute_Texture_B, cell_coord, uvec4(new_attribute));
+                }
+                if (change_state) {
+                    imageStore(obstacle_Texture, cell_coord, ivec4(new_state, 0, 0, 0));
+                    imageStore(attribute_Texture_A, cell_coord, uvec4(0.0, 0.0, 0.0, 0.0));
+                    imageStore(attribute_Texture_B, cell_coord, uvec4(0.0, 0.0, 0.0, 0.0));
+                    imageStore(pressure_Texture, cell_coord, uvec4(0.0, 0.0, 0.0, 0.0));
+                }
+            }
+
+            else if (action == action_add) {
+                if (change_preasure) {
+                    float old_pressure = imageLoad(pressure_Texture, cell_coord).r;
+                    imageStore(pressure_Texture, cell_coord, uvec4(old_pressure + new_pressure, 0, 0, 0));
+                }
+                if (change_attribute) {
+                    vec4 old_attribute = imageLoad(attribute_Texture_A, cell_coord);
+                    imageStore(attribute_Texture_A, cell_coord, uvec4(old_attribute + new_attribute));
+                    imageStore(attribute_Texture_B, cell_coord, uvec4(old_attribute + new_attribute));
+                }
+            }
+        }
     }
+
+    // velocity x
+
+    // velocity y
 }

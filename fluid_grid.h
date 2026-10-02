@@ -14,6 +14,8 @@
 #include <gtx/quaternion.hpp>
 #include <gtc/type_ptr.hpp>
 
+#include <bitset>
+
 class FluidGrid {
 private:
 	// ==========================================
@@ -26,6 +28,7 @@ private:
 	ShaderProgram velocityXrenderProg;
 	ShaderProgram velocityYrenderProg;
 
+	ShaderProgram stateEnforceComputeProg;
 	ShaderProgram divergenceComputeProg;
 	ShaderProgram pressureComputeProg;
 	ShaderProgram velocityXComputeProg;
@@ -35,6 +38,7 @@ private:
 	ShaderProgram attributeAdvectionComputeProg;
 
 	ShaderProgram circleDrawComputeProg;
+	ShaderProgram rectangleDrawComputeProg;
 
 	VAO vao;
 
@@ -78,14 +82,21 @@ private:
 		IMAGE_UNIT_2 = 2,
 		IMAGE_UNIT_3 = 3,
 		IMAGE_UNIT_4 = 4,
-		IMAGE_UNIT_5 = 5
+		IMAGE_UNIT_5 = 5,
+		IMAGE_UNIT_6 = 6,
+		IMAGE_UNIT_7 = 7
 	};
 
 	bool current_velocity_data = false;
 	bool current_divergence_data = false;
 	bool current_attribute_data = false;
-
 public:
+	// other
+	bool top_wall = true;
+	bool bottom_wall = true;
+	bool left_wall = true;
+	bool rigth_wall = true;
+
 	// ==========================================
 	// SETUP
 	// ==========================================
@@ -111,6 +122,9 @@ public:
 		velocityYrenderProg.addShader(GL_FRAGMENT_SHADER, readFileToString(shadersDirectory + "rendering/render_flow_X&Y.frag"));
 		velocityYrenderProg.compile();
 
+		stateEnforceComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "compute/obstacle_enforce.comp"));
+		stateEnforceComputeProg.compile();
+
 		divergenceComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "compute/divergence_solver.comp"));
 		divergenceComputeProg.compile();
 
@@ -134,6 +148,9 @@ public:
 
 		circleDrawComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "modify/circle.comp"));
 		circleDrawComputeProg.compile();
+
+		rectangleDrawComputeProg.addShader(GL_COMPUTE_SHADER, readFileToString(shadersDirectory + "modify/rectangle.comp"));
+		rectangleDrawComputeProg.compile();
 
 		// texture setup
 		for (int i = 0; i < 2; i++) {
@@ -213,6 +230,35 @@ public:
 	// ==========================================
 	// SIMULATION COMPUTE
 	// ==========================================
+
+	void enforce_cell_states() {
+		stateEnforceComputeProg.useProgram();
+
+		pressure_texture.bindImage(IMAGE_UNIT_0);
+
+		velocity_X_texture[current_velocity_data].bindImage(IMAGE_UNIT_1);
+		velocity_X_texture[!current_velocity_data].bindImage(IMAGE_UNIT_2);
+
+		velocity_Y_texture[current_velocity_data].bindImage(IMAGE_UNIT_3);
+		velocity_Y_texture[!current_velocity_data].bindImage(IMAGE_UNIT_4);
+
+		attribute_texture[current_attribute_data].bindImage(IMAGE_UNIT_5);
+		attribute_texture[!current_attribute_data].bindImage(IMAGE_UNIT_6);
+
+		obstacle_texture.bindImage(IMAGE_UNIT_7);
+
+		int compacted_walls = 0;
+		compacted_walls |= top_wall << 0;
+		compacted_walls |= bottom_wall << 1;
+		compacted_walls |= left_wall << 2;
+		compacted_walls |= rigth_wall << 3;
+		glUniform1i(glGetUniformLocation(stateEnforceComputeProg.getID(), "compacted_walls"), compacted_walls);
+
+		glUniform2i(glGetUniformLocation(stateEnforceComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
+		glUniform1f(glGetUniformLocation(stateEnforceComputeProg.getID(), "cell_side_length"), 1.0f / (float)cell_count.y);
+
+		stateEnforceComputeProg.runCompute(cell_count.x, cell_count.y, 1, GL_ALL_BARRIER_BITS);
+	}
 
 	void compute_divergence(float dt, float density) {
 		divergenceComputeProg.useProgram();
@@ -339,20 +385,147 @@ public:
 	// MODIFY
 	// ==========================================
 
-	void draw_circle(glm::vec2 center, float radius, int state) {
+	enum ModifyAction {
+		ADD = 1, 
+		SET = 0
+	};
+
+	struct ModifyParameters {
+		bool change_pressure = false;
+		float new_pressure = 0.0f;
+
+		bool change_velocity_X  = false;
+		bool change_velocity_Y = false;
+		glm::vec2 new_velocity;
+
+		bool change_attribute = false;
+		glm::vec4 new_attribute = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+		bool change_state  = false;
+		int new_state = 0;
+	};
+
+	void modify_circle(ModifyParameters parameters, ModifyAction action, glm::vec2 origin, float radius) {
 		circleDrawComputeProg.useProgram();
 
-		obstacle_texture.bindImage(IMAGE_UNIT_0);
-		attribute_texture[current_attribute_data].bindImage(IMAGE_UNIT_1);
-		attribute_texture[!current_attribute_data].bindImage(IMAGE_UNIT_2);
+		pressure_texture.bindImage(IMAGE_UNIT_0);
 
-		glUniform2f(glGetUniformLocation(circleDrawComputeProg.getID(), "circle_center"), center.x, center.y);
+		velocity_X_texture[current_velocity_data].bindImage(IMAGE_UNIT_1);
+		velocity_X_texture[!current_velocity_data].bindImage(IMAGE_UNIT_2);
+
+		velocity_Y_texture[current_velocity_data].bindImage(IMAGE_UNIT_3);
+		velocity_Y_texture[!current_velocity_data].bindImage(IMAGE_UNIT_4);
+
+		attribute_texture[current_attribute_data].bindImage(IMAGE_UNIT_5);
+		attribute_texture[!current_attribute_data].bindImage(IMAGE_UNIT_6);
+
+		obstacle_texture.bindImage(IMAGE_UNIT_7);
+
+		// parameters
+		int compacted_parameters = 0;
+		compacted_parameters |= parameters.change_pressure   << 0;
+		compacted_parameters |= parameters.change_velocity_X << 1;
+		compacted_parameters |= parameters.change_velocity_Y << 2;
+		compacted_parameters |= parameters.change_attribute  << 3;
+		compacted_parameters |= parameters.change_state      << 4;
+		compacted_parameters |= action                       << 5;
+		glUniform1i(glGetUniformLocation(circleDrawComputeProg.getID(), "compacted_parameters"), compacted_parameters);
+
+		// payload
+		if (parameters.change_pressure)
+			glUniform1f(glGetUniformLocation(circleDrawComputeProg.getID(), "new_pressure"),
+				parameters.new_pressure
+			);
+		if (parameters.change_velocity_X || parameters.change_velocity_Y)
+			glUniform2f(glGetUniformLocation(circleDrawComputeProg.getID(), "new_velocity"),
+				parameters.new_velocity.x,
+				parameters.new_velocity.y
+			);
+		if (parameters.change_attribute)
+			glUniform4f(glGetUniformLocation(circleDrawComputeProg.getID(), "new_attribute"),
+				parameters.new_attribute.x,
+				parameters.new_attribute.y,
+				parameters.new_attribute.z,
+				parameters.new_attribute.a
+			);
+		if (parameters.change_state)
+			glUniform1i(glGetUniformLocation(circleDrawComputeProg.getID(), "new_state"),
+				parameters.new_state
+			);
+
+		// shape specific part
+		glUniform2f(glGetUniformLocation(circleDrawComputeProg.getID(), "circle_center"), origin.x, origin.y);
 		glUniform1f(glGetUniformLocation(circleDrawComputeProg.getID(), "radius"), radius);
-		glUniform1i(glGetUniformLocation(circleDrawComputeProg.getID(), "state"), state);
+
+		// constants
 		glUniform2i(glGetUniformLocation(circleDrawComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
 		glUniform1f(glGetUniformLocation(circleDrawComputeProg.getID(), "cell_side_length"), 1.0f / (float)cell_count.y);
 
-		circleDrawComputeProg.runCompute(cell_count.x, cell_count.y, 1, GL_ALL_BARRIER_BITS);
+		circleDrawComputeProg.runCompute(cell_count.x + 1, cell_count.y + 1, 1, GL_ALL_BARRIER_BITS);
+	}
+	void modify_triangle_WIP() {
+
+	}
+	void modify_rectangle(ModifyParameters parameters, ModifyAction action, glm::vec2 origin, glm::vec2 size) {
+		rectangleDrawComputeProg.useProgram();
+
+		pressure_texture.bindImage(IMAGE_UNIT_0);
+
+		velocity_X_texture[current_velocity_data].bindImage(IMAGE_UNIT_1);
+		velocity_X_texture[!current_velocity_data].bindImage(IMAGE_UNIT_2);
+
+		velocity_Y_texture[current_velocity_data].bindImage(IMAGE_UNIT_3);
+		velocity_Y_texture[!current_velocity_data].bindImage(IMAGE_UNIT_4);
+
+		attribute_texture[current_attribute_data].bindImage(IMAGE_UNIT_5);
+		attribute_texture[!current_attribute_data].bindImage(IMAGE_UNIT_6);
+
+		obstacle_texture.bindImage(IMAGE_UNIT_7);
+
+		// parameters
+		int compacted_parameters = 0;
+		compacted_parameters |= parameters.change_pressure << 0;
+		compacted_parameters |= parameters.change_velocity_X << 1;
+		compacted_parameters |= parameters.change_velocity_Y << 2;
+		compacted_parameters |= parameters.change_attribute << 3;
+		compacted_parameters |= parameters.change_state << 4;
+		compacted_parameters |= action << 5;
+		glUniform1i(glGetUniformLocation(rectangleDrawComputeProg.getID(), "compacted_parameters"), compacted_parameters);
+
+		// payload
+		if (parameters.change_pressure)
+			glUniform1f(glGetUniformLocation(rectangleDrawComputeProg.getID(), "new_preasure"),
+				parameters.new_pressure
+			);
+		if (parameters.change_velocity_X || parameters.change_velocity_Y)
+			glUniform2f(glGetUniformLocation(rectangleDrawComputeProg.getID(), "new_velocity"),
+				parameters.new_velocity.x,
+				parameters.new_velocity.y
+			);
+		if (parameters.change_attribute)
+			glUniform4f(glGetUniformLocation(rectangleDrawComputeProg.getID(), "new_attribute"),
+				parameters.new_attribute.x,
+				parameters.new_attribute.y,
+				parameters.new_attribute.z,
+				parameters.new_attribute.a
+			);
+		if (parameters.change_state)
+			glUniform1i(glGetUniformLocation(rectangleDrawComputeProg.getID(), "new_state"),
+				parameters.new_state
+			);
+
+		// shape specific part
+		glUniform2f(glGetUniformLocation(rectangleDrawComputeProg.getID(), "rectangle_center"), origin.x, origin.y);
+		glUniform2f(glGetUniformLocation(rectangleDrawComputeProg.getID(), "rectangle_size"), size.x, size.y);
+
+		// constants
+		glUniform2i(glGetUniformLocation(rectangleDrawComputeProg.getID(), "cell_count"), cell_count.x, cell_count.y);
+		glUniform1f(glGetUniformLocation(rectangleDrawComputeProg.getID(), "cell_side_length"), 1.0f / (float)cell_count.y);
+
+		rectangleDrawComputeProg.runCompute(cell_count.x + 1, cell_count.y + 1, 1, GL_ALL_BARRIER_BITS);
+	}
+	void modify_line_WIP() {
+
 	}
 
 	// ==========================================
@@ -507,8 +680,8 @@ public:
 			);
 		}
 	}
-	void setObstacles(int x, int y, int width, int height, int state) {
-		std::vector<int> obstacle_data(width * height, state);
+	void setObstacles(int x, int y, int width, int height, char state) {
+		std::vector<char> obstacle_data(width * height, state);
 		obstacle_texture.write(
 			0, x, y,
 			width, height,

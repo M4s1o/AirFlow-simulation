@@ -165,12 +165,17 @@
     <ClCompile Include="source\graphics_API_extension.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaders\compute\attribute_advection.comp" />
     <None Include="shaders\compute\divergence_solver.comp" />
+    <None Include="shaders\compute\obstacle_enforce.comp" />
     <None Include="shaders\compute\pressure_solver.comp" />
     <None Include="shaders\compute\velocity_X_advection.comp" />
     <None Include="shaders\compute\velocity_X_solver.comp" />
     <None Include="shaders\compute\velocity_Y_advection.comp" />
     <None Include="shaders\compute\velocity_Y_solver.comp" />
+    <None Include="shaders\modify\circle.comp" />
+    <None Include="shaders\modify\line.comp" />
+    <None Include="shaders\modify\rectangle.comp" />
     <None Include="shaders\rendering\render_cell.frag" />
     <None Include="shaders\rendering\render_cell.vert" />
     <None Include="shaders\rendering\render_flow.frag" />

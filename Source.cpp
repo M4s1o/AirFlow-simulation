@@ -28,7 +28,7 @@ int main() {
 	Window window;
 	window.setSize(0, 0, 1920, 1080);
 	window.setName("Air - flower");
-	window.setMaximized(true);
+	window.setMaximized(false);
 	window.setFullscreen(true);
 
 	glEnable(GL_BLEND);
@@ -46,6 +46,7 @@ int main() {
 	auto current_time = start_time;
 	auto last_frame_time = current_time;
 	
+	// 640 360
 	glm::ivec2 grid_resolution = { 640, 360 };
 	FluidGrid fluid_grid(grid_resolution);
 
@@ -57,12 +58,12 @@ int main() {
 
 	float max_velocity_on_grid = 0.0f;
 
-	const char* demo_names[] = { "empty", "smoke", "jetstream", "jet & lines (WIP)", "jet & ball", "2 jets", "jet & wall", "vacuum", "tri color"};
-	const int demo_count = 9;
+	const char* demo_names[] = { "empty", "smoke", "jetstream", "jet & lines (WIP)", "jet & ball", "2 jets", "jet & wall", "vacuum", "tri color", "wind tunnel"};
+	const int demo_count = 10;
 	int current_demo = 0;
 	float specific_demo_velocity = 0.1f;
 
-	const char* paint_shapes[] = { "rectangle (WIP)", "circle", "line (WIP)" };
+	const char* paint_shapes[] = { "rectangle", "circle", "line (WIP)" };
 	const int paint_shapes_count = 3;
 	int paint_shape = 1;
 
@@ -159,7 +160,7 @@ int main() {
 		color_maximum = 1.0f;
 		rbGS_iteration_count = 30;
 		SOR = 1.7f;
-		current_demo = 5;
+		current_demo = 9;
 		vsync = false;
 		window.setVsync(vsync);
 	};
@@ -186,6 +187,12 @@ int main() {
 	};
 
 	auto reset_demo = [&fluid_grid, &current_demo, &specific_demo_velocity, &max_velocity_on_grid]() {
+		switch (current_demo) {
+		case 9:
+			{
+			fluid_grid.setVelocity_X(0, 0, fluid_grid.getGridSize().x + 1, fluid_grid.getGridSize().y, specific_demo_velocity);
+			}
+		}
 	};
 	auto update_demo = [&fluid_grid, &current_demo, &specific_demo_velocity, &max_velocity_on_grid]() {
 		max_velocity_on_grid = 999999999999.99f;
@@ -219,11 +226,23 @@ int main() {
 			float specific_velocity = specific_demo_velocity;
 			max_velocity_on_grid = specific_velocity;
 			const int n = 60;
-			const int d = 100;
-			const int w = 40;
+			const float d = 100.0f;
+			const float w = 0.05f;
 
 			fluid_grid.setVelocity_X((fluid_grid.getGridSize().x - d) / 2, (fluid_grid.getGridSize().y - n) / 2, 1, n, specific_velocity);
-			fluid_grid.setAttributes((fluid_grid.getGridSize().x + d) / 2, (fluid_grid.getGridSize().y - w) / 2, w, w, { 1.0f, 1.0f, 1.0f, 1.0f });
+
+			glm::vec2 position = {
+				(((float)fluid_grid.getGridSize().x + d) * 0.5f) / (float)fluid_grid.getGridSize().y,
+				0.5f
+			};
+
+			FluidGrid::ModifyParameters parameters;
+			parameters.change_attribute = true;
+			parameters.new_attribute = { 1.0f, 1.0f, 1.0f, 1.0f };
+			fluid_grid.modify_circle(
+				parameters, FluidGrid::SET,
+				{ position.x, position.y },
+				w);
 			break;
 			}
 		case 5:
@@ -268,6 +287,24 @@ int main() {
 			fluid_grid.setAttributes((fluid_grid.getGridSize().x - D - d) / 2 - 1, (fluid_grid.getGridSize().y - n) / 2, 1, n, { 0.0f, 1.0f, 0.0f, 1.0f });
 			break;
 			}
+		case 9:
+			{
+			float specific_velocity = specific_demo_velocity;
+			max_velocity_on_grid = specific_demo_velocity;
+			const int n = 10;
+
+			fluid_grid.top_wall = true;
+			fluid_grid.bottom_wall = true;
+			fluid_grid.rigth_wall = false;
+			fluid_grid.left_wall = false;
+
+			fluid_grid.setVelocity_X(1, 0, 2, fluid_grid.getGridSize().y, specific_demo_velocity);
+			fluid_grid.setAttributes(1, (fluid_grid.getGridSize().y - n) / 2, 2, n, { 0.0f, 1.0f, 1.0f, 1.0f });
+
+			//fluid_grid.setVelocity_X(fluid_grid.getGridSize().x -10, (fluid_grid.getGridSize().y - n) / 2, 2, n, specific_demo_velocity);
+			//fluid_grid.setAttributes(fluid_grid.getGridSize().x -10, (fluid_grid.getGridSize().y - n) / 2, 2, n, { 0.0f, 1.0f, 1.0f, 1.0f });
+			break;
+			}
 		}
 	};
 
@@ -284,11 +321,10 @@ int main() {
 		render_now = false;
 		compute_now = false;
 
-		if (cell_rendering_fence.signaled() && cell_compute_fence.signaled()) {
+		if (cell_rendering_fence.signaled())
 			render_now = true;
+		if (cell_compute_fence.signaled())
 			compute_now = true;
-		}
-		render_now = true;
 
 		// ==========================================
 		// TIME CONTROL
@@ -314,16 +350,16 @@ int main() {
 
 		if (!paused && delta_time != 0 && compute_now) {
 			update_demo();
-			
+
+			fluid_grid.enforce_cell_states();
+
 			fluid_grid.compute_divergence(delta_time, density);
 			fluid_grid.compute_pressure(rbGS_iteration_count, SOR);
-
-			//fluid_grid.setPressure(fluid_grid.getGridSize().x - 1, 0, 1, fluid_grid.getGridSize().y, 0.0f);
-			//fluid_grid.setVelocity_X(fluid_grid.getGridSize().x - 1, 0, 1, fluid_grid.getGridSize().y, 10.0f);
 
 			fluid_grid.compute_velocities(delta_time, density);
 			fluid_grid.compute_attribute_advection(delta_time);window.setVsync(vsync);
 			fluid_grid.compute_velocity_advection(delta_time);
+
 			cell_compute_fence.place();
 		}
 
@@ -366,6 +402,7 @@ int main() {
 		if (button_released(GLFW_KEY_F, F_pressed)) {
 			fluid_grid.reset_fluid();
 			fluid_grid.reset_attributes();
+			reset_demo();
 		}
 
 		if (button_released(GLFW_KEY_TAB, tab_pressed)) {
@@ -573,9 +610,13 @@ int main() {
 							float local_cursor_position_X = cursor_X_position / (float)window.getFormat()->height;
 							float local_cursor_position_Y = 1.0f - cursor_Y_position / (float)window.getFormat()->height;
 
-							fluid_grid.draw_circle(
+							FluidGrid::ModifyParameters parameters;
+							parameters.change_state = true;
+							parameters.new_state = 1;
+							fluid_grid.modify_circle(
+								parameters, FluidGrid::SET,
 								{ local_cursor_position_X, local_cursor_position_Y },
-								circle_radius, 1);
+								circle_radius);
 						}
 						if (!ImGui::GetIO().WantCaptureMouse && glfwGetMouseButton(window.getContext(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
 							glfwGetCursorPos(window.getContext(), &cursor_X_position, &cursor_Y_position);
@@ -583,9 +624,13 @@ int main() {
 							float local_cursor_position_X = cursor_X_position / (float)window.getFormat()->height;
 							float local_cursor_position_Y = 1.0f - cursor_Y_position / (float)window.getFormat()->height;
 
-							fluid_grid.draw_circle(
+							FluidGrid::ModifyParameters parameters;
+							parameters.change_state = true;
+							parameters.new_state = 0;
+							fluid_grid.modify_circle(
+								parameters, FluidGrid::SET,
 								{ local_cursor_position_X, local_cursor_position_Y },
-								circle_radius, 0);
+								circle_radius);
 						}
 						break;
 					case 2:
@@ -605,6 +650,23 @@ int main() {
 					break;
 				}
 
+				ImGui::SeparatorText("walls");
+				ImGui::Text("demos set walls automaticly");
+
+				ImGui::SetNextItemWidth(ui_width);
+				ImGui::Checkbox("left wall", &fluid_grid.left_wall);
+
+				ImGui::SetNextItemWidth(ui_width);
+				ImGui::Checkbox("rigth wall", &fluid_grid.rigth_wall);
+
+				ImGui::SetNextItemWidth(ui_width);
+				ImGui::Checkbox("top wall", &fluid_grid.top_wall);
+
+				ImGui::SetNextItemWidth(ui_width);
+				ImGui::Checkbox("bottom wall", &fluid_grid.bottom_wall);
+
+				ImGui::SeparatorText("demos");
+
 				ImGui::SetNextItemWidth(ui_width);
 				if (ImGui::Combo("demo", &current_demo, demo_names, demo_count))
 					reset_demo();
@@ -612,7 +674,7 @@ int main() {
 				ImGui::SetNextItemWidth(ui_width);
 				ImGui::SliderFloat("demo velocity", &specific_demo_velocity, 0.01, 0.3, "%.3f");
 
-
+				ImGui::SeparatorText("resets");
 
 				ImGui::SetNextItemWidth(ui_width);
 				if (ImGui::Button("reset fluid")) {
@@ -766,7 +828,8 @@ int main() {
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		}
 
-		window.swapBuffers();
+		if (render_now)
+			window.swapBuffers();
 		glfwPollEvents();
 	}
 	return 1;

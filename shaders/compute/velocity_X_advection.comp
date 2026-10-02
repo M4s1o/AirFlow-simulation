@@ -13,12 +13,6 @@ uniform float cell_side_length;
 uniform float dt;
 uniform float density;
 
-bool cellExists(ivec2 cell_coord) {
-    if (cell_coord.x < 0 || cell_coord.y < 0) return false;
-    if (cell_coord.x >= int(cell_count.x + 1) || cell_coord.y >= int(cell_count.y)) return false;
-    return true;
-}
-
 float sampleBiLinear(vec2 position, float top_left, float top_right, float bottom_right, float bottom_left) {
     position = clamp(position, 0.0, 1.0);
 
@@ -73,14 +67,6 @@ void main() {
     ivec2 imgSize = imageSize(flowX_Texture_in);
     if (edge_coord.x < 0 || edge_coord.y < 0 || edge_coord.x >= imgSize.x || edge_coord.y >= imgSize.y)
         return;
-
-    bool has_left  = (edge_coord.x > 0);
-    bool has_right = (edge_coord.x < int(cell_count.x)) && (edge_coord.x < imgSize.x);
-
-    if (!has_right || !has_left) {
-        imageStore(flowX_Texture_out, edge_coord, vec4(0.0, 0.0, 0.0, 0.0));
-        return;
-    }
 
     vec2 old_velocity = vec2(
         imageLoad(flowX_Texture_in, edge_coord).x, (

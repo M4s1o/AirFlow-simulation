@@ -1,0 +1,62 @@
+#version 460 core
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(r32f, binding = 0) uniform image2D pressure_Texture;
+
+layout(r16f, binding = 1) uniform image2D flowX_Texture_A;
+layout(r16f, binding = 2) uniform image2D flowX_Texture_B;
+
+layout(r16f, binding = 3) uniform image2D flowY_Texture_A;
+layout(r16f, binding = 4) uniform image2D flowY_Texture_B;
+
+layout(r16f, binding = 5) uniform image2D attribute_Texture_A;
+layout(r16f, binding = 6) uniform image2D attribute_Texture_B;
+
+layout(r8ui, binding = 7) uniform uimage2D obstacle_Texture;
+
+uniform int compacted_walls;
+
+uniform float cell_side_length;
+uniform ivec2 cell_count;
+
+bool cellExists(ivec2 cell_coord) {
+    if (cell_coord.x < 0 || cell_coord.y < 0) return false;
+    if (cell_coord.x >= cell_count.x || cell_coord.y >= cell_count.y) return false;
+    return true;
+}
+//bool velocity_X_Exists(ivec2 velocity_coord) {
+//    if (velocity_coord.x < 0 || velocity_coord.y < 0) return false;
+//    if (velocity_coord.x >= cell_count.x + 1 || velocity_coord.y >= cell_count.y) return false;
+//    return true;
+//}
+//bool velocity_Y_Exists(ivec2 velocity_coord) {
+//    if (velocity_coord.x < 0 || velocity_coord.y < 0) return false;
+//    if (velocity_coord.x >= cell_count.x || velocity_coord.y >= cell_count.y + 1) return false;
+//    return true;
+//}
+
+void main() {
+    uvec2 ucell = gl_GlobalInvocationID.xy;
+
+    bool top_wall    = bool((compacted_walls >> 0) & 1);
+    bool bottom_wall = bool((compacted_walls >> 1) & 1);
+    bool left_wall   = bool((compacted_walls >> 2) & 1);
+    bool rigth_wall  = bool((compacted_walls >> 3) & 1);
+
+    if (!cellExists(ivec2(ucell))) return;
+
+    ivec2 cell_coord = ivec2(ucell);
+
+    vec2 cell_position = vec2(cell_coord) * cell_side_length;
+
+    // enforce walls
+    if (cell_coord.y >= cell_count.y - 1)
+        imageStore(obstacle_Texture, cell_coord, ivec4(top_wall, 0, 0, 0));
+    if (cell_coord.y <= 0)
+        imageStore(obstacle_Texture, cell_coord, ivec4(bottom_wall, 0, 0, 0));
+    if (cell_coord.x <= 0)
+        imageStore(obstacle_Texture, cell_coord, ivec4(left_wall, 0, 0, 0));
+    if (cell_coord.x >= cell_count.x - 1)
+        imageStore(obstacle_Texture, cell_coord, ivec4(rigth_wall, 0, 0, 0));
+}
